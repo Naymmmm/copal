@@ -1,6 +1,7 @@
 --!strict
 local FileSystem = require("./FileSystem")
 local Terminal = require("./Terminal")
+local Communication = require("./Communication")
 
 local Registry = {}
 
@@ -52,8 +53,6 @@ function Registry.validate(name: string, args: any): (boolean, string?)
     
     return true
 end
-
-local Communication = require("./Communication")
 
 -- Initialize default tools
 Registry.register(FileSystem.readFileTool)

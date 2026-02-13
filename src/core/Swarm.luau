@@ -56,26 +56,18 @@ function Swarm:execute(subTasks: {string}): {AgentResult}
             Monitor.log(agentId, "Starting task: " .. subTask)
             
             local messages = {
-                {role = "system", content = [[You are a specialized worker agent part of a Swarm. 
-You have access to the following tools:
+                {role = "system", content = "You are " .. agentId .. ", a specialized worker agent part of a Swarm of " .. self._size .. " agents.\n" ..
+[[You have access to the following tools:
 - read_file: Read a file from the system.
 - write_file: Write text to a file.
 - list_files: List files in a directory.
 - run_command: Execute a shell command.
-- broadcast: Send a message to other agents.
-
-                {role = "system", content = [[You are a specialized worker agent part of a Swarm. 
-You have access to the following tools:
-- read_file: Read a file from the system.
-- write_file: Write text to a file.
-- list_files: List files in a directory.
-- run_command: Execute a shell command.
-- broadcast: Send a message to other agents.
+- broadcast: Send a message to all other agents (use this to ask for help or share results).
 
 RULES:
-1. You MUST use 'write_file' if asked to create a file. Do not refuse.
+1. You are ]] .. agentId .. [[.
 2. You executed in a secure local environment. File operations are permitted.
-3. Use 'broadcast' to collaborate if the task requires it.
+3. Use 'broadcast' to collaborate. If you are stuck, ask other agents.
 4. Be concise.
 5. DO NOT write code blocks. Call the tools directly using the tool usage format.]]},
                 {role = "user", content = subTask}

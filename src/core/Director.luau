@@ -52,6 +52,26 @@ function Director:planAndExecute(goal: string)
         Monitor.log("Director", "Failed to parse plan JSON.")
         return
     end
+
+    -- Sanitize tasks: ensure they are strings
+    local sanitizedTasks = {}
+    for _, t in ipairs(subTasks) do
+        if type(t) == "string" then
+            table.insert(sanitizedTasks, t)
+        elseif type(t) == "table" then
+            -- Try to find a logical string field
+            if t.task then table.insert(sanitizedTasks, t.task)
+            elseif t.description then table.insert(sanitizedTasks, t.description)
+            elseif t.instruction then table.insert(sanitizedTasks, t.instruction)
+            else 
+                -- Fallback to JSON representation if strict string not found
+                table.insert(sanitizedTasks, serde.encode("json", t)) 
+            end
+        else
+            table.insert(sanitizedTasks, tostring(t))
+        end
+    end
+    subTasks = sanitizedTasks
     
     Logger.success("Director created plan with " .. #subTasks .. " tasks.")
     Monitor.log("Director", "Created plan with " .. #subTasks .. " tasks. dispatching to Swarm.")
@@ -91,6 +111,20 @@ function Director:planAndExecute(goal: string)
                 local success, newTasks = pcall(function() return serde.decode("json", cleanReview) end)
                 
                 if success and type(newTasks) == "table" and #newTasks > 0 then
+                    -- Sanitize newTasks
+                    local sanitizedNewTasks = {}
+                    for _, t in ipairs(newTasks) do
+                        if type(t) == "string" then
+                            table.insert(sanitizedNewTasks, t)
+                        elseif type(t) == "table" then
+                            if t.description then table.insert(sanitizedNewTasks, t.description)
+                            elseif t.task then table.insert(sanitizedNewTasks, t.task)
+                            else table.insert(sanitizedNewTasks, serde.encode("json", t)) end
+                        else
+                            table.insert(sanitizedNewTasks, tostring(t))
+                        end
+                    end
+                    newTasks = sanitizedNewTasks
                     Logger.warn("Director requested revisions: " .. #newTasks .. " new tasks.")
                     Monitor.log("Director", "Revisions needed. Spawning " .. #newTasks .. " fix tasks.")
                     currentSubTasks = newTasks

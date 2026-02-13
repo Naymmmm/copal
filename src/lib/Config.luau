@@ -22,7 +22,8 @@ export type ProviderConfig = {
     models: {
         low: string,
         medium: string,
-        high: string
+        high: string,
+        search: string
     }
 }
 
@@ -33,22 +34,22 @@ local Config = {
         opencode = {
             url = "https://api.opencode.com/v1",
             key = "",
-            models = {low = "gpt-4o-mini", medium = "gpt-4o", high = "o1"}
+            models = {low = "gpt-4o-mini", medium = "gpt-4o", high = "o1", search = "perplexity/sonar-reasoning"}
         } :: ProviderConfig,
         openrouter = {
             url = "https://openrouter.ai/api/v1",
             key = "",
-            models = {low = "liquid/lfm-40b", medium = "anthropic/claude-3.5-sonnet", high = "openai/o1-preview"}
+            models = {low = "liquid/lfm-40b", medium = "anthropic/claude-3.5-sonnet", high = "openai/o1-preview", search = "x-ai/grok-4.1-fast"}
         } :: ProviderConfig,
         openai = {
             url = "https://api.openai.com/v1",
             key = "",
-            models = {low = "gpt-4o-mini", medium = "gpt-4o", high = "o1-preview"}
+            models = {low = "gpt-4o-mini", medium = "gpt-4o", high = "o1-preview", search = "gpt-4o"}
         } :: ProviderConfig,
         custom = {
             url = "http://localhost:11434/v1", -- Example for Ollama
             key = "sk-proj-custom",
-            models = {low = "llama3", medium = "llama3", high = "llama3"}
+            models = {low = "llama3", medium = "llama3", high = "llama3", search = "llama3"}
         } :: ProviderConfig
     }
 }

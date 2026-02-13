@@ -10,6 +10,9 @@ local Director = require("./core/Director")
 local Company = require("./core/Company")
 local Config = require("./lib/Config")
 
+-- Protocol require removed as file does not exist
+local Wizard = require("./ui/Wizard")
+
 local function main()
     TUI.drawHeader("Initializing...")
 
@@ -22,7 +25,6 @@ local function main()
 
     Config.load()
     if forceSetup or not Config.exists() then
-        local Wizard = require("./ui/Wizard")
         Wizard.start()
         -- Reload config after wizard
         Config.load()
@@ -68,7 +70,6 @@ local function main()
                 mode = "company"
                 break
             elseif selection == "4" then
-                local Wizard = require("./ui/Wizard")
                 Wizard.settingsMenu()
                 -- Loop back to selection after settings
             else
