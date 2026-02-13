@@ -59,6 +59,8 @@ Registry.register(FileSystem.readFileTool)
 Registry.register(FileSystem.writeFileTool)
 Registry.register(FileSystem.listFilesTool)
 Registry.register(Terminal.runCommandTool)
+Registry.register(require("./Ripgrep").searchTool)
 Registry.register(Communication.broadcastTool)
+Registry.register(require("./Interaction").askUserTool)
 
 return Registry

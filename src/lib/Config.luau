@@ -28,8 +28,10 @@ export type ProviderConfig = {
 }
 
 local Config = {
-    configFile = CONFIG_FILE, -- Expose for UI/Logging
+    configFile = CONFIG_FILE,
     active_provider = "opencode",
+    security_level = "restricted", -- "restricted" | "full_access"
+    shell_preference = "auto", -- "auto" | "pwsh" | "powershell" | "bash" | "cmd"
     providers = {
         opencode = {
             url = "https://api.opencode.com/v1",
@@ -47,7 +49,7 @@ local Config = {
             models = {low = "gpt-4o-mini", medium = "gpt-4o", high = "o1-preview", search = "gpt-4o"}
         } :: ProviderConfig,
         custom = {
-            url = "http://localhost:11434/v1", -- Example for Ollama
+            url = "http://localhost:11434/v1",
             key = "sk-proj-custom",
             models = {low = "llama3", medium = "llama3", high = "llama3", search = "llama3"}
         } :: ProviderConfig
@@ -60,6 +62,8 @@ function Config.load()
         local success, data = pcall(function() return serde.decode("json", content) end)
         if success and type(data) == "table" then
             if data.active_provider then Config.active_provider = data.active_provider end
+            if data.security_level then Config.security_level = data.security_level end
+            if data.shell_preference then Config.shell_preference = data.shell_preference end
             if data.providers then 
                 for k, v in pairs(data.providers) do
                     Config.providers[k] = v
@@ -74,6 +78,8 @@ end
 function Config.save()
     local content = serde.encode("json", {
         active_provider = Config.active_provider,
+        security_level = Config.security_level,
+        shell_preference = Config.shell_preference,
         providers = Config.providers
     }, true)
     fs.writeFile(CONFIG_FILE, content)

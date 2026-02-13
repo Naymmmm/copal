@@ -123,7 +123,8 @@ function Wizard.settingsMenu()
         stdio.write("1. Change Active Provider\n")
         stdio.write("2. Update API Key (Current Provider)\n")
         stdio.write("3. Update Model Selection\n")
-        stdio.write("4. Back to Main Menu\n")
+        stdio.write("4. Change Security Level (" .. (Config.security_level or "restricted") .. ")\n")
+        stdio.write("5. Back to Main Menu\n")
         
         local selection = TUI.prompt("Select Option")
         
@@ -159,6 +160,20 @@ function Wizard.settingsMenu()
             Logger.success("Models updated.")
             Task.wait(1)
         elseif selection == "4" then
+            TUI.drawHeader("Select Security Level")
+            stdio.write("1. Restricted (Default) - Agents confined to CWD, commands require approval.\n")
+            stdio.write("2. Full Access - Agents can roam file system, commands run automatically.\n")
+            
+            local secSel = TUI.prompt("Select Mode (1-2)")
+            if secSel == "1" then
+                Config.security_level = "restricted"
+            elseif secSel == "2" then
+                Config.security_level = "full_access"
+            end
+            Config.save()
+            Logger.success("Security level updated to: " .. Config.security_level)
+            Task.wait(1)
+        elseif selection == "5" then
             return
         end
     end

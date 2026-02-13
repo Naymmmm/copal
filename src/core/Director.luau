@@ -21,13 +21,18 @@ function Director.new(): DirectorInstance
     return self
 end
 
-function Director:planAndExecute(goal: string)
+function Director:planAndExecute(goal: string, context: string?)
     Logger.info("Director planning for goal: " .. goal)
     Monitor.log("Director", "Planning for goal: " .. goal)
     
     -- 1. Decompose goal
+    local contentMsg = "You are a Technical Director. Break down the user's goal into a JSON list of specific, actionable subtasks for junior developers. Return ONLY the JSON array of strings."
+    if context then
+        contentMsg = contentMsg .. "\n\nOverall Mission Context: " .. context
+    end
+    
     local planningPrompt = {
-        {role = "system", content = "You are a Technical Director. Break down the user's goal into a JSON list of specific, actionable subtasks for junior developers. Return ONLY the JSON array of strings."},
+        {role = "system", content = contentMsg},
         {role = "user", content = goal}
     }
     
@@ -73,8 +78,16 @@ function Director:planAndExecute(goal: string)
     end
     subTasks = sanitizedTasks
     
+    -- Format Plan as Markdown for Logs
+    local planMd = "## Execution Plan for: " .. goal .. "\n"
+    for i, task in ipairs(subTasks) do
+        planMd = planMd .. i .. ". " .. task .. "\n"
+    end
+    
     Logger.success("Director created plan with " .. #subTasks .. " tasks.")
-    Monitor.log("Director", "Created plan with " .. #subTasks .. " tasks. dispatching to Swarm.")
+    Monitor.log("Director", "Plan:\n" .. planMd)
+    print(planMd) -- Ensure it's visible in console output directly
+    Monitor.log("Director", "Dispatching to Swarm.")
     
     -- 2. Execute via Swarm with Review Loop
     local maxReviews = 3

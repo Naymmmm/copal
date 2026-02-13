@@ -25,6 +25,59 @@ type Message = {
     tool_call_id: string?
 }
 
+-- Internal helper for retrying requests
+local function requestWithRetry(provider: any, body: string)
+    local maxRetries = 3
+    local attempt = 0
+    local lastError = "Unknown Error"
+    
+    while attempt < maxRetries do
+        attempt += 1
+        
+        local success, response = pcall(function()
+            return net.request({
+                url = provider.url .. "/chat/completions",
+                method = "POST",
+                headers = {
+                    ["Content-Type"] = "application/json",
+                    ["Authorization"] = "Bearer " .. provider.key,
+                },
+                body = body,
+            })
+        end)
+
+        if success and response.ok then
+            local decodeSuccess, decoded = pcall(function() return serde.decode("json", response.body) end)
+            if decodeSuccess then
+                if decoded.choices and #decoded.choices > 0 then
+                    return decoded
+                end
+                lastError = "Response missing choices field"
+            else
+                lastError = "Failed to parse JSON response"
+            end
+        elseif success then
+            lastError = "HTTP " .. response.statusCode .. ": " .. response.statusMessage
+            Logger.warn("Attempt " .. attempt .. " failed: " .. lastError)
+            
+            if response.statusCode == 429 or response.statusCode >= 500 then
+                 local waitTime = math.pow(2, attempt)
+                 Logger.info("Retrying in " .. waitTime .. "s...")
+                 require("@lune/task").wait(waitTime)
+            else
+                 break -- Fatal error
+            end
+        else
+            lastError = "Network Request Failed: " .. tostring(response)
+            Logger.warn("Attempt " .. attempt .. " failed: " .. lastError)
+            require("@lune/task").wait(1)
+        end
+    end
+
+    Logger.error("LLM Request failed after " .. maxRetries .. " attempts. Last error: " .. lastError)
+    return nil
+end
+
 function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?, toolChoice: any?): (string?, {any}?)
     local provider = Config.getActive()
     
@@ -43,39 +96,9 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
 
     local body = serde.encode("json", payload)
 
-    local success, response = pcall(function()
-        return net.request({
-            url = provider.url .. "/chat/completions",
-            method = "POST",
-            headers = {
-                ["Content-Type"] = "application/json",
-                ["Authorization"] = "Bearer " .. provider.key,
-            },
-            body = body,
-        })
-    end)
-
-    if not success then
-        Logger.error("Network request failed. Please check your internet connection or API URL.")
-        return nil, nil
-    end
-
-    if not response.ok then
-        Logger.error("LLM Request failed: " .. response.statusMessage .. " (" .. response.statusCode .. ")")
-        Logger.debug("Response body: " .. response.body)
-        if response.statusCode == 401 then
-            Logger.error("Unauthorized: Invalid API Key.")
-        elseif response.statusCode == 404 then
-            Logger.error("Not Found: Invalid Model or API URL.")
-        end
-        return nil, nil
-    end
-
-    local decodeSuccess, data = pcall(function() return serde.decode("json", response.body) end)
-    if not decodeSuccess then
-        Logger.error("Failed to parse response JSON.")
-        return nil, nil
-    end
+    -- Call internal request with retries
+    local data = requestWithRetry(provider, body)
+    if not data then return nil, nil end
 
     if data.choices and #data.choices > 0 then
         local message = data.choices[1].message
@@ -89,42 +112,22 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
             local cleanContent = content
             
             for match in content:gmatch("<%|tool_call_start%|>(.-)<%|tool_call_end%|>") do
-                -- match e.g.: [write_file(content='Tool use verified', filename='agent_tool_test.txt')]
-                -- This parsing is tricky in Luau without regex, but we'll try a basic approach
-                -- Removing outer brackets
                 local inner = match:match("^%[(.*)%]$")
                 if inner then
                     local nameOffset = inner:find("%(")
                     if nameOffset then
                         local name = inner:sub(1, nameOffset - 1)
-                        local argsRaw = inner:sub(nameOffset + 1, -2) -- remove last )
+                        local argsRaw = inner:sub(nameOffset + 1, -2)
                         
-                        -- Very naive argument parser: assume keys are simple and values are strings
-                        -- Ideally we'd use a real parser, but for this specific model format:
-                        local args = {}
-                        
-                        -- Try to convert python-style kwargs to json valid string for downstream decoding
-                        -- This is a best-effort hack for the specific observed format
-                        -- write_file(content='...', filename='...')
-                        
-                        -- We will manually construct a JSON string
-                        -- Replacing ' with " and handling basic structure
-                        -- WARNING: This is fragile. Use with caution.
-                        
-                        -- Alternative: Just warn the user. 
-                        -- But let's try to extract key='value'
                         local jsonParts = {}
                         for k, v in argsRaw:gmatch("(%w+)='(.-)'") do
                             table.insert(jsonParts, '"' .. k .. '": "' .. v .. '"')
                         end
-                        -- Try double quotes too
                         for k, v in argsRaw:gmatch('(%w+)="(.-)"') do
                             table.insert(jsonParts, '"' .. k .. '": "' .. v .. '"')
                         end
                         
                         local jsonStr = "{" .. table.concat(jsonParts, ", ") .. "}"
-                        
-                        -- Generate a fake ID
                         local callId = "call_" .. math.random(10000, 99999)
                         
                         table.insert(toolCalls, {
@@ -136,22 +139,20 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
                             }
                         })
                         
-                        -- Remove the raw tool call from content to clean it up
                         cleanContent = cleanContent:gsub("<%|tool_call_start%|>" .. match:gsub("([^%w])", "%%%1") .. "<%|tool_call_end%|>", "")
                     end
                 end
             end
             
-            -- If we successfully parsed something, update content
             if #toolCalls > 0 then
                 Logger.info("Parsed " .. #toolCalls .. " text-based tool calls.")
                 content = cleanContent
             else
-                toolCalls = nil -- Reset if failed
+                toolCalls = nil 
             end
-            -- If still no tool calls, try to parse JSON blocks that look like tool calls
+
+            -- If still no tool calls, try to parse JSON blocks
             if not toolCalls and content and (content:find("{") and content:find("}")) then
-                 -- Extract first JSON block
                  local jsonBlock = content:match("({.*})")
                  if not jsonBlock then
                      jsonBlock = content:match("```json%s*({.*})%s*```")
@@ -182,22 +183,11 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
                  end
             end
             
-            -- If still no tool calls, try to parse code blocks (common failure mode for weak models)
+            -- If still no blocks, parse simple code blocks
             if not toolCalls and content and (content:find("```python") or content:find("```lua") or content:find("```")) then
-                -- Look for write_file('...', '...') pattern
-                for match in content:gmatch("write_file%(['\"](.-)['\"],%s*['\"](.-)['\"]%)") do
-                    if not toolCalls then toolCalls = {} end
-                    
-                    local filename, fileContent = match, nil
-                    -- The gmatch above captures two groups. Let's make it more robust.
-                    -- Re-matching specific call
-                end
-                
-                -- Simplified regex for write_file specifically since that's what we're testing
                 local filename, fileContent = content:match("write_file%(['\"](.-)['\"],%s*['\"](.-)['\"]%)")
                 if filename and fileContent then
                      if not toolCalls then toolCalls = {} end
-                     -- FIX: Tools use 'path', not 'filename'
                      local jsonStr = "{\"path\": \"" .. filename .. "\", \"content\": \"" .. fileContent .. "\"}"
                      table.insert(toolCalls, {
                         id = "call_fallback_" .. math.random(10000, 99999),
@@ -210,7 +200,6 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
                     Logger.info("Parsed write_file from code block.")
                 end
                 
-                -- Support run_command('...')
                 local cmd = content:match("run_command%(['\"](.-)['\"]%)")
                 if cmd then
                      if not toolCalls then toolCalls = {} end

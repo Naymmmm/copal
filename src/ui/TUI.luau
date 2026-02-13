@@ -61,6 +61,58 @@ function TUI.drawBox(title: string, content: string)
     stdio.write(content .. "\n\n")
 end
 
+function TUI.drawDashboard(state: {
+    mode: string,
+    activeAgents: number,
+    completedTasks: number,
+    totalTasks: number,
+    agents: { {id: string, status: string, iterations: number} }
+})
+    TUI.clear()
+    TUI.drawHeader(state.mode)
+    
+    stdio.write(stdio.color("green") .. stdio.style("bold") .. "PROGRESS: [" .. state.completedTasks .. "/" .. state.totalTasks .. "]\n")
+    -- Draw Progress Bar
+    local width = 40
+    local percent = state.totalTasks > 0 and (state.completedTasks / state.totalTasks) or 0
+    local filled = math.floor(percent * width)
+    local bar = string.rep("█", filled) .. string.rep("░", width - filled)
+    stdio.write(stdio.color("cyan") .. bar .. " " .. math.floor(percent * 100) .. "%\n" .. stdio.color("reset"))
+    
+    stdio.write("\n" .. stdio.style("bold") .. "AGENTS:" .. stdio.style("reset") .. "\n")
+    for _, agent in ipairs(state.agents) do
+        local statusColor = "white"
+        if agent.status:find("Thinking") then statusColor = "yellow"
+        elseif agent.status:find("Executing") then statusColor = "magenta"
+        elseif agent.status:find("Error") then statusColor = "red"
+        elseif agent.status:find("Done") then statusColor = "green"
+        end
+        
+        stdio.write(agent.id .. ": " .. stdio.color(statusColor) .. agent.status .. stdio.color("reset") .. " (Iter: " .. agent.iterations .. ")\n")
+    end
+    
+    stdio.write("\n" .. stdio.style("dim") .. "Controls: /pause, /resume, /info <msg>, /status" .. stdio.style("reset") .. "\n")
+    stdio.write(string.rep("-", 40) .. "\n\n")
+end
+
+function TUI.startInputLoop(callback: (string) -> ())
+    local Task = require("@lune/task")
+    Task.spawn(function()
+        while true do
+            -- This blocks the thread, so it must be spawned.
+            -- Using pcall to avoid crash on interrupt
+            local success, line = pcall(function() return stdio.prompt("text", "") end)
+            if success and line then
+                if #line > 0 then
+                    callback(line)
+                end
+            else
+                Task.wait(0.1)
+            end
+        end
+    end)
+end
+
 function TUI.prompt(question: string): string
     stdio.write(stdio.color("green") .. "> " .. question .. ": " .. stdio.color("reset"))
     return stdio.prompt("text", "")
@@ -74,6 +126,12 @@ function TUI.promptSecret(question: string): string
     -- ANSI Reset/Visible
     stdio.write("\27[28m")
     return input
+end
+
+function TUI.confirm(question: string): boolean
+    stdio.write(stdio.color("yellow") .. "> " .. question .. " [y/N]: " .. stdio.color("reset"))
+    local input = stdio.prompt("text", "")
+    return input:lower() == "y" or input:lower() == "yes"
 end
 
 return TUI

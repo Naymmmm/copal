@@ -65,7 +65,7 @@ function Company:start(mission: string)
             local director = Director.new()
             table.insert(self._directors, director)
             
-            local results = director:planAndExecute(directive)
+            local results = director:planAndExecute(directive, mission)
             directiveResults[directive] = results
             pending -= 1
         end)

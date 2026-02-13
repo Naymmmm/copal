@@ -21,33 +21,55 @@ Terminal.runCommandTool = {
         local prog = args.command
         local params = cmdArgs
         
-        -- OS Detection and Shell Wrapping
-        if process.os == "windows" then
-            -- Wrap in cmd /c
-            -- We need to construct the full command string for cmd /c
-            -- Simple approach: use "cmd", {"/c", command .. " " .. table.concat(args, " ")}
-            -- But simplistic concatenation is dangerous/complex with quotes.
-            -- However, for this MVP tool, let's try to execute directly if possible, or wrap.
-            -- Echo is a shell builtin, so we MUST use shell.
-            -- Most users want shell execution.
-            
-            -- Re-construct command line
-            local fullCmd = prog
-            for _, arg in ipairs(params) do
-                fullCmd = fullCmd .. " " .. arg
+        local os = process.os
+        local shellPref = require("../lib/Config").shell_preference
+        
+        -- Determine Shell
+        if os == "windows" then
+            if shellPref == "cmd" then
+                 prog = "cmd"
+                 params = {"/c", table.concat(params, " ")}
+            elseif shellPref == "powershell" then
+                 prog = "powershell"
+                 params = {"-Command", table.concat(params, " ")}
+            elseif shellPref == "pwsh" then
+                 prog = "pwsh"
+                 params = {"-Command", table.concat(params, " ")}
+            else
+                -- Auto detection
+                -- Try pwsh first
+                local check = pcall(function() 
+                    process.spawn("pwsh", {"-v"}) 
+                end)
+                
+                if check then
+                    prog = "pwsh"
+                    params = {"-Command", table.concat(params, " ")}
+                else
+                     -- Fallback to powershell
+                     local checkPS = pcall(function() 
+                        process.spawn("powershell", {"-v"}) 
+                     end)
+                     if checkPS then
+                         prog = "powershell"
+                         params = {"-Command", table.concat(params, " ")}
+                     else
+                         -- Fallback to cmd
+                         prog = "cmd"
+                         params = {"/c", table.concat(params, " ")}
+                     end
+                end
             end
-            
-            prog = "cmd"
-            params = {"/c", fullCmd}
         else
-            -- Linux/Mac - use sh -c
-            local fullCmd = prog
-            for _, arg in ipairs(params) do
-                fullCmd = fullCmd .. " " .. arg
+            -- Linux/Mac
+            if shellPref == "bash" then
+                prog = "bash"
+                params = {"-c", table.concat(params, " ")}
+            else
+                 -- Auto: Default to bash
+                 prog = "bash"
+                 params = {"-c", table.concat(params, " ")}
             end
-            
-            prog = "sh"
-            params = {"-c", fullCmd}
         end
         
         local success, result = pcall(function()
