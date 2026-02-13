@@ -34,7 +34,7 @@
     -   **Validation**: Built-in schema checking to prevent hallucinations.
 -   **Provider Agnostic**: Works with **OpenRouter**, **OpenCode**, **OpenAI**, or any **Custom** OpenAI-compatible endpoint.
 
-## 📦 Installation
+## Installation
 
 Copal requires [Lune](https://lune-org.github.io/docs), a standalone Luau runtime.
 
@@ -55,13 +55,13 @@ Copal requires [Lune](https://lune-org.github.io/docs), a standalone Luau runtim
 
 2.  **Clone the Repository**:
     ```bash
-    git clone https://github.com/yourusername/copal.git
+    git clone https://github.com/Naymmmm/copal.git
     cd copal
     ```
 
 3.  **Run Setup**:
     ```bash
-    lune run src/main.luau -- --setup
+    lune run src/main.luau
     ```
     Follow the wizard to select your provider (e.g., OpenRouter) and enter your API key.
 
@@ -105,5 +105,5 @@ Copal stores configuration in `~/.copal_config.json` (Home Directory). You can e
 -   **"Tool not found"**: The agent may be hallucinating a tool name. The Director's review loop helps catch this.
 -   **Network Errors**: Check your `Custom` provider URL or ensure your API key has credits.
 
-## 📄 License
+## License
 Apache 2.0
