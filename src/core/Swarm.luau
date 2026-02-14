@@ -119,6 +119,68 @@ function Swarm:execute(subTasks: {string})
     -- Get tools for the agents
     local toolDefs = Registry.getAllDefinitions()
     
+    -- ════════════════════════════════════════════════
+    --  PHASE 0: Build Team Roster
+    -- ════════════════════════════════════════════════
+    local teamRoster = "\nTEAM ROSTER (who is working on what):\n"
+    for j, task in ipairs(subTasks) do
+        teamRoster = teamRoster .. "- Agent " .. j .. ": " .. task .. "\n"
+    end
+    teamRoster = teamRoster .. "\nUse 'whisper' to message a specific agent by name (e.g. 'Agent 2').\n"
+    teamRoster = teamRoster .. "Use 'broadcast' to share findings with the entire team.\n"
+    teamRoster = teamRoster .. "Coordinate to avoid duplicate work. If another agent's task overlaps with yours, whisper them.\n"
+    
+    -- ════════════════════════════════════════════════
+    --  PHASE 1: Coordination (agents announce plans)
+    -- ════════════════════════════════════════════════
+    if #subTasks > 1 then
+        Monitor.log("Swarm", "Coordination phase: agents announcing plans...")
+        
+        local plansPending = #subTasks
+        
+        for i, subTask in ipairs(subTasks) do
+            local agentId = "Agent " .. i
+            
+            Task.spawn(function()
+                swarmState.agents[i].status = "Planning"
+                
+                local planPrompt = {
+                    {role = "system", content = "You are " .. agentId .. ". You are about to start working on a task as part of a team." .. teamRoster .. "\nYour assigned task: " .. subTask .. "\n\nIn 1-2 sentences, describe your plan and what files/resources you expect to touch. Be specific so other agents can coordinate with you. Reply with ONLY your plan, no extra text."},
+                    {role = "user", content = "Announce your plan to the team."}
+                }
+                
+                local plan, _ = LLMClient.completion(planPrompt, self._model, nil, nil)
+                
+                if plan and #plan > 0 then
+                    table.insert(swarmBlackboard, {
+                        type = "plan",
+                        source = agentId,
+                        content = plan
+                    })
+                    Monitor.log(agentId, "Plan: " .. plan)
+                else
+                    table.insert(swarmBlackboard, {
+                        type = "plan",
+                        source = agentId,
+                        content = "(no plan provided)"
+                    })
+                end
+                
+                plansPending -= 1
+            end)
+        end
+        
+        -- Wait for all agents to announce their plans
+        while plansPending > 0 do
+            Task.wait(0.1)
+        end
+        
+        Monitor.log("Swarm", "All agents have announced plans. Starting execution...")
+    end
+    
+    -- ════════════════════════════════════════════════
+    --  PHASE 2: Execution (agents work on their tasks)
+    -- ════════════════════════════════════════════════
     for i, subTask in ipairs(subTasks) do
         local agentId = "Agent " .. i
         
@@ -162,6 +224,7 @@ Operating System: ]] .. osName .. [[
 Architecture: ]] .. archName .. [[
 Current Working Directory: ]] .. cwd .. [[
 Security Level: ]] .. securityLevel .. [[
+]] .. teamRoster .. [[
 
 RULES:
 1. You are ]] .. agentId .. [[.
@@ -171,12 +234,13 @@ RULES:
 5. Use 'report_progress' after completing significant work to share what files you touched.
 6. If stuck, use 'request_help'. If a subtask would be better done separately, use 'delegate_task'.
 7. Be concise. Call tools directly — do NOT write code blocks.
+8. CHECK THE TEAM ROSTER. If another agent is working on a related task, coordinate with them via 'whisper'.
 ]]
 
             if securityLevel == "restricted" then
-                systemPrompt = systemPrompt .. "8. You are in RESTRICTED mode. Operate ONLY within the Current Working Directory. Do not try to access parent directories.\n"
+                systemPrompt = systemPrompt .. "9. You are in RESTRICTED mode. Operate ONLY within the Current Working Directory. Do not try to access parent directories.\n"
             else
-                systemPrompt = systemPrompt .. "8. You are in FULL ACCESS mode. You may access any file and run any command necessary.\n"
+                systemPrompt = systemPrompt .. "9. You are in FULL ACCESS mode. You may access any file and run any command necessary.\n"
             end
 
             local messages = {
@@ -222,6 +286,8 @@ RULES:
                                 prefix = "[Progress from " .. msg.source .. "]"
                             elseif msg.type == "delegation" then
                                 prefix = "[Delegated Task from " .. msg.source .. "]"
+                            elseif msg.type == "plan" then
+                                prefix = "[Plan from " .. msg.source .. "]"
                             end
                             
                             table.insert(messages, {

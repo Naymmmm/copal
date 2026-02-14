@@ -26,7 +26,20 @@ function Director:planAndExecute(goal: string, context: string?)
     Monitor.log("Director", "Planning for goal: " .. goal)
     
     -- 1. Decompose goal
-    local contentMsg = "You are a Technical Director. Break down the user's goal into a JSON list of specific, actionable subtasks for junior developers. Return ONLY the JSON array of strings."
+    local contentMsg = [[You are a Technical Director. Break down the user's goal into a JSON list of actionable subtasks.
+
+CRITICAL RULES FOR TASK DECOMPOSITION:
+- Keep the number of tasks PROPORTIONAL to the goal's complexity.
+- Simple goals (e.g. "make a hello world script") = 1-3 tasks MAX.
+- Medium goals (e.g. "build a REST API") = 3-5 tasks.
+- Complex goals (e.g. "build a full web app") = 5-8 tasks MAX.
+- Really Complex (e.g. "Make a game engine") = Unlimited
+- NEVER exceed 8 tasks. Consolidate related steps into single tasks.
+- Each task should be a meaningful unit of work, NOT a single line of code.
+- BAD: "Create file main.py", "Add print statement", "Save file" (3 tasks for 1 thing)
+- GOOD: "Create main.py with a hello world program" (1 task)
+
+Return ONLY the JSON array of strings, no explanation.]]
     if context then
         contentMsg = contentMsg .. "\n\nOverall Mission Context: " .. context
     end
