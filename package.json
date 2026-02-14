@@ -6,10 +6,10 @@
     "dev": "cd docs && next dev",
     "build": "cd docs && next build",
     "start": "cd docs && next start",
-    "pages:dev": "wrangler pages dev",
-    "pages:deploy": "wrangler pages deploy"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.3.0",
     "next": "^14.0.0",
     "nextra": "^2.13.2",
     "nextra-theme-docs": "^2.13.2",
