@@ -262,11 +262,32 @@ end
 --  Public: LLM Completion
 -- ═══════════════════════════════════════
 
+-- Global state for rate limiting
+local lastRequestTime = 0
+local requestMutex = false
+
 function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?, toolChoice: any?): (string?, {any}?)
-    -- Rate limit delay (configurable)
+    -- Rate limit: Stagger request starts
     local delay = Config.rate_limit_delay or 0
+    
     if delay > 0 then
-        Task.wait(delay)
+        -- Wait for lock to check time
+        while requestMutex do
+            Task.wait(0.1)
+        end
+        requestMutex = true
+        
+        local now = os.clock()
+        local elapsed = now - lastRequestTime
+        
+        if elapsed < delay then
+            Task.wait(delay - elapsed)
+            lastRequestTime = os.clock()
+        else
+            lastRequestTime = now
+        end
+        
+        requestMutex = false
     end
     
     local provider = Config.getActive()

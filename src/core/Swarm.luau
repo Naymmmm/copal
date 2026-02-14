@@ -93,8 +93,15 @@ function Swarm:execute(subTasks: {string})
         Monitor.log("Swarm", "Coordination phase: agents announcing plans...")
         
         local plansPending = #subTasks
+        local activePlanAgents = 0
         
         for i, subTask in ipairs(subTasks) do
+            -- Throttle
+            while activePlanAgents >= self._size do
+                Task.wait(0.1)
+            end
+            activePlanAgents += 1
+            
             local agentId = "Agent " .. i
             
             Task.spawn(function()
@@ -123,6 +130,7 @@ function Swarm:execute(subTasks: {string})
                 end
                 
                 plansPending -= 1
+                activePlanAgents -= 1
             end)
         end
         
@@ -137,7 +145,15 @@ function Swarm:execute(subTasks: {string})
     -- ════════════════════════════════════════════════
     --  PHASE 2: Execution (agents work on their tasks)
     -- ════════════════════════════════════════════════
+    local activeAgents = 0
+    
     for i, subTask in ipairs(subTasks) do
+        -- Throttle
+        while activeAgents >= self._size do
+            Task.wait(0.2)
+        end
+        activeAgents += 1
+        
         local agentId = "Agent " .. i
         
         Task.spawn(function()
@@ -435,6 +451,7 @@ RULES:
             })
             
             pending -= 1
+            activeAgents -= 1
         end)
     end
     
