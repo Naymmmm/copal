@@ -1,0 +1,19 @@
+name = "naymmmm/copal"
+version = "0.1.0"
+description = "Copal is a powerful, modular AI Agent Swarm framework written in Luau"
+authors = ["Naymmmm"]
+repository = "https://github.com/Naymmmm/copal.git"
+license = "Apache-2.0"
+includes = [
+  "pesde.toml",
+  "README.md",
+  "LICENSE",
+  "src/**/*.luau",
+]
+
+[target]
+environment = "lune"
+bin = "src/main.luau"
+
+[indices]
+default = "https://github.com/pesde-pkg/index"
