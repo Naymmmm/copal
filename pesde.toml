@@ -1,5 +1,5 @@
 name = "naymmmm/copal"
-version = "0.2.2"
+version = "0.2.3"
 description = "Copal is a powerful, modular AI Agent Swarm framework written in Luau"
 authors = ["Naymmmm"]
 repository = "https://github.com/Naymmmm/copal.git"

@@ -481,15 +481,12 @@ function TUI.confirm(question: string): boolean
     for line in question:gmatch("[^\n]+") do
         TUI.sectionItem(ICONS.warning, THEME.warning, line)
     end
-    wColor(THEME.border, "│\n")
-    wColor(THEME.border, "│ ")
-    wBoldColor(THEME.info, "  [y]es / [N]o: ")
-    
-    local input = stdio.prompt("text", "")
     TUI.sectionEnd()
     
+    local result = stdio.prompt("confirm", question)
+    
     TUI._stdinLocked = false
-    return input:lower() == "y" or input:lower() == "yes"
+    return result
 end
 
 function TUI.askUser(question: string): string
