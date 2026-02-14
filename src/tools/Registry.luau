@@ -88,8 +88,10 @@ Registry.register(Communication.reportProgressTool)
 -- Interaction
 Registry.register(require("./Interaction").askUserTool)
 
--- Reasoning
+-- Reasoning & Flow Control
 Registry.register(require("./Thinking").thinkTool)
+Registry.register(require("./Thinking").sleepTool)
+Registry.register(require("./Thinking").wakeTool)
 
 -- Web
 Registry.register(require("./WebFetch").fetchTool)

@@ -215,8 +215,10 @@ COMMUNICATION:
 - report_progress: Share status and files you've touched.
 - ask_user: Ask the user a question.
 
-REASONING & DELEGATION:
+REASONING, FLOW CONTROL & DELEGATION:
 - think: Internal scratchpad — plan before acting (NO side effects).
+- sleep: Pause yourself for N seconds (1-30). Use when waiting for another agent to finish (e.g. waiting for code before compiling).
+- wake: Wake a sleeping agent by name (e.g. 'Agent 3'). Use when you finish work they depend on.
 - delegate_task: Spawn a subtask for another agent to handle.
 
 CONTEXT:
@@ -375,7 +377,20 @@ RULES:
                                     end
                                     
                                     if approved then
-                                        swarmState.agents[i].status = "Executing " .. toolName
+                                        -- Inject agent identity for sleep/wake tools
+                                        if toolName == "sleep" or toolName == "wake" then
+                                            args._agentId = agentId
+                                        end
+                                        
+                                        if toolName == "sleep" then
+                                            swarmState.agents[i].status = "Sleeping"
+                                            Monitor.log(agentId, "Sleeping: " .. (args.reason or ""))
+                                        elseif toolName == "wake" then
+                                            Monitor.log(agentId, "Waking " .. (args.target or "?") .. ": " .. (args.reason or ""))
+                                        else
+                                            swarmState.agents[i].status = "Executing " .. toolName
+                                        end
+                                        
                                         Monitor.log(agentId, "Executing " .. toolName)
                                         toolResult = toolDef.execute(args)
                                         
