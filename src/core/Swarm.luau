@@ -14,7 +14,7 @@ Swarm.__index = Swarm
 
 function Swarm.new(size: number?, model: string?)
     local self = setmetatable({}, Swarm)
-    self._size = size or 5
+    self._size = size or Config.max_agents or 5
     self._model = model or Config.getActive().models.low
     self._results = {}
     return self

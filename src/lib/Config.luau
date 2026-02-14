@@ -32,6 +32,8 @@ local Config = {
     active_provider = "opencode",
     security_level = "restricted", -- "restricted" | "full_access"
     shell_preference = "auto", -- "auto" | "pwsh" | "powershell" | "bash" | "cmd"
+    rate_limit_delay = 0, -- seconds to wait between LLM calls (0 = no delay)
+    max_agents = 5, -- max concurrent agents in swarm mode
     providers = {
         opencode = {
             url = "https://api.opencode.com/v1",
@@ -64,6 +66,8 @@ function Config.load()
             if data.active_provider then Config.active_provider = data.active_provider end
             if data.security_level then Config.security_level = data.security_level end
             if data.shell_preference then Config.shell_preference = data.shell_preference end
+            if data.rate_limit_delay then Config.rate_limit_delay = tonumber(data.rate_limit_delay) or 0 end
+            if data.max_agents then Config.max_agents = tonumber(data.max_agents) or 5 end
             if data.providers then 
                 for k, v in pairs(data.providers) do
                     Config.providers[k] = v
@@ -80,6 +84,8 @@ function Config.save()
         active_provider = Config.active_provider,
         security_level = Config.security_level,
         shell_preference = Config.shell_preference,
+        rate_limit_delay = Config.rate_limit_delay,
+        max_agents = Config.max_agents,
         providers = Config.providers
     }, true)
     fs.writeFile(CONFIG_FILE, content)

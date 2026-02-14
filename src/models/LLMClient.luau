@@ -263,6 +263,12 @@ end
 -- ═══════════════════════════════════════
 
 function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?, toolChoice: any?): (string?, {any}?)
+    -- Rate limit delay (configurable)
+    local delay = Config.rate_limit_delay or 0
+    if delay > 0 then
+        Task.wait(delay)
+    end
+    
     local provider = Config.getActive()
     
     if not provider.key or #provider.key == 0 then
