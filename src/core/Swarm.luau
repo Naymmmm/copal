@@ -63,52 +63,8 @@ function Swarm:execute(subTasks: {string})
         isPaused = false
     end
     
-    -- Register swarm-specific slash commands
-    TUI.registerCommand({
-        name = "pause",
-        description = "Pause all agents",
-        usage = "pause",
-        handler = function()
-            isPaused = true
-            Monitor.log("System", "Swarm PAUSED. Type /resume to continue.")
-        end,
-    })
-    
-    TUI.registerCommand({
-        name = "resume",
-        description = "Resume paused agents",
-        usage = "resume",
-        handler = function()
-            isPaused = false
-            Monitor.log("System", "Swarm RESUMED.")
-        end,
-    })
-    
-    TUI.registerCommand({
-        name = "status",
-        description = "Show agent dashboard",
-        usage = "status",
-        handler = function()
-            TUI.drawDashboard(swarmState)
-        end,
-    })
-    
-    TUI.registerCommand({
-        name = "info",
-        description = "Inject info into agent context",
-        usage = "info <message>",
-        handler = function(args: string?)
-            if args and #args > 0 then
-                table.insert(swarmBlackboard, {
-                    source = "User",
-                    content = args
-                })
-                Monitor.log("System", "Injected: " .. args)
-            else
-                Monitor.log("System", "Usage: /info <message>")
-            end
-        end,
-    })
+    -- Commands removed to fix stdin corruption
+    -- Swarm now runs without interruption unless it asks for input.
     
     -- Start the input loop (dispatches slash commands automatically)
     TUI.startInputLoop(function(line)

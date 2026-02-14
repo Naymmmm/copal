@@ -136,7 +136,7 @@ local VERSION = (function()
         local ver = content:match('version%s*=%s*"([^"]+)"')
         if ver then return ver end
     end
-    return "0.2.9"
+    return "0.2.10"
 end)()
 
 function TUI.drawHeader(title: string?)
@@ -477,24 +477,15 @@ function TUI.dispatchCommand(input: string): boolean
     end
 end
 
+-- Store callback for non-command input — NO background stdio.prompt
+-- The old version spawned a background prompt that competed for stdin,
+-- causing garbled input on Windows. Now commands are dispatched inline.
+TUI._inputCallback = nil :: ((string) -> ())?
+
+-- Input loop removed as per user request to fix stdin corruption.
+-- We no longer spawn a background task to listen for commands.
 function TUI.startInputLoop(callback: (string) -> ())
-    Task.spawn(function()
-        while true do
-            while TUI._stdinLocked do
-                Task.wait(0.2)
-            end
-            
-            local success, line = pcall(function() return stdio.prompt("text", "") end)
-            if success and line and #line > 0 then
-                -- Try to dispatch as slash command first
-                if not TUI.dispatchCommand(line) then
-                    callback(line)
-                end
-            else
-                Task.wait(0.1)
-            end
-        end
-    end)
+    -- No-op
 end
 
 -- ═══════════════════════════════════════
@@ -504,7 +495,7 @@ end
 function TUI.prompt(question: string): string
     wColor(THEME.success, ICONS.prompt .. " ")
     wBold(question .. ": ")
-    return stdio.prompt("text", "")
+    return stdio.prompt("text", "") or ""
 end
 
 function TUI.promptSecret(question: string): string
@@ -517,9 +508,6 @@ function TUI.promptSecret(question: string): string
 end
 
 function TUI.confirm(question: string): boolean
-    TUI._stdinLocked = true
-    Task.wait(0.3)
-    
     TUI.blank()
     TUI.section("Approval Required")
     for line in question:gmatch("[^\n]+") do
@@ -528,15 +516,10 @@ function TUI.confirm(question: string): boolean
     TUI.sectionEnd()
     
     local result = stdio.prompt("confirm", question)
-    
-    TUI._stdinLocked = false
     return result
 end
 
 function TUI.askUser(question: string): string
-    TUI._stdinLocked = true
-    Task.wait(0.3)
-    
     TUI.blank()
     TUI.section("Agent Question")
     for line in question:gmatch("[^\n]+") do
@@ -549,7 +532,6 @@ function TUI.askUser(question: string): string
     local input = stdio.prompt("text", "")
     TUI.sectionEnd()
     
-    TUI._stdinLocked = false
     return input
 end
 
