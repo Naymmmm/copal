@@ -5,6 +5,9 @@ local stdio = require("@lune/stdio")
 local Monitor = {}
 local listeners = {}
 
+-- Write mutex: prevents concurrent agents from interleaving output
+local _writeLock = false
+
 export type EventType = "log" | "thought" | "tool_call" | "tool_result" | "agent_state" | "completion"
 export type Event = {
     type: EventType,
@@ -12,6 +15,17 @@ export type Event = {
     data: any,
     timestamp: number
 }
+
+local function acquireWriteLock()
+    while _writeLock do
+        Task.wait(0.02)
+    end
+    _writeLock = true
+end
+
+local function releaseWriteLock()
+    _writeLock = false
+end
 
 function Monitor.emit(eventType: EventType, source: string, data: any)
     local event: Event = {
@@ -21,11 +35,14 @@ function Monitor.emit(eventType: EventType, source: string, data: any)
         timestamp = os.time()
     }
     
-    -- Dispatch to listeners
+    -- Dispatch to listeners SERIALLY to prevent interleaved output
     for _, callback in ipairs(listeners) do
-        Task.spawn(function()
-            callback(event)
-        end)
+        acquireWriteLock()
+        local ok, err = pcall(callback, event)
+        releaseWriteLock()
+        if not ok then
+            -- Silently ignore listener errors
+        end
     end
 end
 

@@ -126,6 +126,9 @@ function Swarm:execute(subTasks: {string})
             swarmState.agents[i].status = "Starting"
             Monitor.log(agentId, "Starting task: " .. subTask)
             
+            local osName = process.os
+            local archName = process.arch
+            
             local systemPrompt = "You are " .. agentId .. ", a specialized worker agent part of a Swarm of " .. self._size .. " agents.\n" ..
 [[You have access to the following tools:
 
@@ -155,22 +158,25 @@ REASONING & DELEGATION:
 - delegate_task: Spawn a subtask for another agent to handle.
 
 CONTEXT:
+Operating System: ]] .. osName .. [[
+Architecture: ]] .. archName .. [[
 Current Working Directory: ]] .. cwd .. [[
 Security Level: ]] .. securityLevel .. [[
 
 RULES:
 1. You are ]] .. agentId .. [[.
 2. ALWAYS use 'think' first to plan your approach before taking action.
-3. Use 'patch_file' instead of 'write_file' when editing existing files (avoids clobbering other agents' changes).
-4. Use 'report_progress' after completing significant work to share what files you touched.
-5. If stuck, use 'request_help'. If a subtask would be better done separately, use 'delegate_task'.
-6. Be concise. Call tools directly — do NOT write code blocks.
+3. Use commands appropriate for the OS (e.g. PowerShell on Windows, bash on Linux). NEVER use 'sudo' or 'apt' on Windows.
+4. Use 'patch_file' instead of 'write_file' when editing existing files.
+5. Use 'report_progress' after completing significant work to share what files you touched.
+6. If stuck, use 'request_help'. If a subtask would be better done separately, use 'delegate_task'.
+7. Be concise. Call tools directly — do NOT write code blocks.
 ]]
 
             if securityLevel == "restricted" then
-                systemPrompt = systemPrompt .. "6. You are in RESTRICTED mode. operate ONLY within the Current Working Directory. Do not try to access parent directories.\n"
+                systemPrompt = systemPrompt .. "8. You are in RESTRICTED mode. Operate ONLY within the Current Working Directory. Do not try to access parent directories.\n"
             else
-                systemPrompt = systemPrompt .. "6. You are in FULL ACCESS mode. You may access any file and run any command necessary.\n"
+                systemPrompt = systemPrompt .. "8. You are in FULL ACCESS mode. You may access any file and run any command necessary.\n"
             end
 
             local messages = {

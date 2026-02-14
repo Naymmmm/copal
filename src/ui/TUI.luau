@@ -128,6 +128,17 @@ end
 --  Header / Branding
 -- ═══════════════════════════════════════
 
+local fs = require("@lune/fs")
+
+local VERSION = (function()
+    local ok, content = pcall(function() return fs.readFile("pesde.toml") end)
+    if ok then
+        local ver = content:match('version%s*=%s*"([^"]+)"')
+        if ver then return ver end
+    end
+    return "?.?.?"
+end)()
+
 function TUI.drawHeader(title: string?)
     TUI.clear()
     
@@ -139,7 +150,7 @@ function TUI.drawHeader(title: string?)
 \____/ \____// .___/ \__,_//_/   
             /_/                  
 ]])
-    TUI.blank()
+    wDim("  v" .. VERSION .. "\n")
     
     if title and #title > 0 then
         wBold("  Mode: ")
