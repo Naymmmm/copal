@@ -16,7 +16,7 @@
 
 **Copal** is a powerful, modular AI Agent Swarm framework written in **Luau**, designed to run on the **Lune** runtime. It orchestrates hierarchies of AI models—from low-cost worker swarms to high-intelligence directors—to solve complex tasks autonomously.
 
-## 🚀 Features
+## Features
 
 -   **Hierarchy of Intelligence**:
     -   **Swarm Mode**: A group of cost-effective agents (e.g., `gpt-4o-mini`, `grok-code`) executing subtasks in parallel.
@@ -64,6 +64,21 @@ Copal requires [Lune](https://lune-org.github.io/docs), a standalone Luau runtim
     lune run src/main.luau
     ```
     Follow the wizard to select your provider (e.g., OpenRouter) and enter your API key.
+
+Alternatively, you can use the pesde registry, which is recommended.
+```bash
+# Download pesde
+https://github.com/pesde-pkg/pesde/releases/tag/v0.7.2+registry.0.2.3
+
+# chmod +x if on Unix
+chmod +x pesde
+
+# Install pesde
+pesde self-install
+
+# Run copal
+pesde x naymmmm/copal
+```
 
 ## Usage
 
