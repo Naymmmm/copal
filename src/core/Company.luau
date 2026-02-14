@@ -60,13 +60,26 @@ function Company:start(mission: string)
     
     for i, directive in ipairs(directives) do
         Task.spawn(function()
-            Logger.info("Spawning Director " .. i .. " for: " .. directive)
-            Monitor.log("CEO", "Spawning Director " .. i .. " for: " .. directive)
+            -- Directive may be a string or a table (LLM inconsistency)
+            local directiveStr
+            if type(directive) == "string" then
+                directiveStr = directive
+            elseif type(directive) == "table" then
+                -- Try common keys the LLM might use
+                directiveStr = directive.directive or directive.task or directive.goal 
+                    or directive.description or directive.title or directive.name
+                    or serde.encode("json", directive)
+            else
+                directiveStr = tostring(directive)
+            end
+            
+            Logger.info("Spawning Director " .. i .. " for: " .. directiveStr)
+            Monitor.log("CEO", "Spawning Director " .. i .. " for: " .. directiveStr)
             local director = Director.new()
             table.insert(self._directors, director)
             
-            local results = director:planAndExecute(directive, mission)
-            directiveResults[directive] = results
+            local results = director:planAndExecute(directiveStr, mission)
+            directiveResults[directiveStr] = results
             pending -= 1
         end)
     end
