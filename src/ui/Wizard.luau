@@ -123,15 +123,18 @@ function Wizard.settingsMenu()
         TUI.section("Current Configuration")
         TUI.sectionItem("▸", "cyan", "Provider: " .. stdio.style("bold") .. Config.active_provider .. stdio.style("reset"))
         TUI.sectionItem("▸", "cyan", "Security: " .. stdio.style("bold") .. (Config.security_level or "restricted") .. stdio.style("reset"))
+        TUI.sectionItem("▸", "cyan", "Rate Limit: " .. stdio.style("bold") .. tostring(Config.rate_limit_delay or 0) .. "s" .. stdio.style("reset") .. "  Max Agents: " .. stdio.style("bold") .. tostring(Config.max_agents or 5) .. stdio.style("reset"))
         TUI.sectionEnd()
         TUI.blank()
         
         local selection = TUI.menu({
-            {label = "Change Provider",     value = "provider",  description = "Switch AI provider"},
-            {label = "Update API Key",      value = "apikey",    description = "For " .. Config.active_provider},
-            {label = "Model Selection",     value = "models",    description = "Configure per-tier models"},
-            {label = "Security Level",      value = "security",  description = (Config.security_level or "restricted")},
-            {label = "Back",                value = "back",      description = "Return to main menu"},
+            {label = "Change Provider",     value = "provider",   description = "Switch AI provider"},
+            {label = "Update API Key",      value = "apikey",     description = "For " .. Config.active_provider},
+            {label = "Model Selection",     value = "models",     description = "Configure per-tier models"},
+            {label = "Security Level",      value = "security",   description = (Config.security_level or "restricted")},
+            {label = "Rate Limit Delay",    value = "ratelimit",  description = tostring(Config.rate_limit_delay or 0) .. "s between LLM calls"},
+            {label = "Max Agents",          value = "maxagents",  description = tostring(Config.max_agents or 5) .. " concurrent agents"},
+            {label = "Back",                value = "back",       description = "Return to main menu"},
         })
         
         if selection == "provider" then
@@ -180,6 +183,60 @@ function Wizard.settingsMenu()
                 Logger.success("Security level: " .. secSel)
                 Task.wait(1)
             end
+        elseif selection == "ratelimit" then
+            TUI.drawHeader("Rate Limit Delay")
+            TUI.blank()
+            local delaySel = TUI.menu({
+                {label = "None (0s)",    value = "0",    description = "No delay (fastest)"},
+                {label = "0.25 seconds", value = "0.25", description = "Light throttle"},
+                {label = "0.5 seconds",  value = "0.5",  description = "Moderate throttle"},
+                {label = "1 second",     value = "1",    description = "Heavy throttle"},
+                {label = "2 seconds",    value = "2",    description = "Very slow"},
+                {label = "Custom",       value = "custom", description = "Enter a custom value"},
+            })
+            if delaySel == "custom" then
+                local val = TUI.prompt("Delay in seconds (e.g. 0.75)")
+                local num = tonumber(val)
+                if num and num >= 0 then
+                    Config.rate_limit_delay = num
+                    Config.save()
+                    Logger.success("Rate limit delay: " .. num .. "s")
+                else
+                    Logger.error("Invalid number.")
+                end
+            elseif delaySel then
+                Config.rate_limit_delay = tonumber(delaySel) or 0
+                Config.save()
+                Logger.success("Rate limit delay: " .. delaySel .. "s")
+            end
+            Task.wait(1)
+        elseif selection == "maxagents" then
+            TUI.drawHeader("Max Concurrent Agents")
+            TUI.blank()
+            local agentSel = TUI.menu({
+                {label = "2 agents",  value = "2",  description = "Minimal"},
+                {label = "3 agents",  value = "3",  description = "Light swarm"},
+                {label = "5 agents",  value = "5",  description = "Default"},
+                {label = "8 agents",  value = "8",  description = "Large swarm"},
+                {label = "10 agents", value = "10", description = "Max parallel"},
+                {label = "Custom",    value = "custom", description = "Enter a custom value"},
+            })
+            if agentSel == "custom" then
+                local val = TUI.prompt("Max agents (1-20)")
+                local num = tonumber(val)
+                if num and num >= 1 and num <= 20 then
+                    Config.max_agents = math.floor(num)
+                    Config.save()
+                    Logger.success("Max agents: " .. Config.max_agents)
+                else
+                    Logger.error("Must be between 1 and 20.")
+                end
+            elseif agentSel then
+                Config.max_agents = tonumber(agentSel) or 5
+                Config.save()
+                Logger.success("Max agents: " .. agentSel)
+            end
+            Task.wait(1)
         elseif selection == "back" then
             return
         end
