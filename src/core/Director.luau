@@ -85,8 +85,12 @@ function Director:planAndExecute(goal: string, context: string?)
     end
     
     Logger.success("Director created plan with " .. #subTasks .. " tasks.")
-    Monitor.log("Director", "Plan:\n" .. planMd)
-    print(planMd) -- Ensure it's visible in console output directly
+    Monitor.log("Director", "Plan created with " .. #subTasks .. " tasks.")
+    
+    -- Render the plan through TUI
+    local TUI = require("../ui/TUI")
+    TUI.renderMarkdown(planMd)
+    
     Monitor.log("Director", "Dispatching to Swarm.")
     
     -- 2. Execute via Swarm with Review Loop

@@ -101,16 +101,18 @@ local function wColor(color: string, text: string)
     w(stdio.color(color) .. text .. stdio.color("reset"))
 end
 
+local RESET_ALL = "\27[0m"
+
 local function wBold(text: string)
-    w(stdio.style("bold") .. text .. stdio.style("reset"))
+    w(stdio.style("bold") .. text .. RESET_ALL)
 end
 
 local function wDim(text: string)
-    w(stdio.style("dim") .. text .. stdio.style("reset"))
+    w(stdio.style("dim") .. text .. RESET_ALL)
 end
 
 local function wBoldColor(color: string, text: string)
-    w(stdio.style("bold") .. stdio.color(color) .. text .. stdio.color("reset") .. stdio.style("reset"))
+    w(stdio.style("bold") .. stdio.color(color) .. text .. RESET_ALL)
 end
 
 function TUI.divider(width: number?)
@@ -253,10 +255,9 @@ Monitor.subscribe(function(event)
     if TUI._stdinLocked then return end
     
     if TUI._compact then
-        -- Compact mode: only show completions and errors
         if event.type == "completion" then
             wBoldColor(THEME.success, ICONS.success .. " [" .. event.source .. "] ")
-            w(tostring(event.data) .. "\n")
+            w(tostring(event.data) .. RESET_ALL .. "\n")
         end
         return
     end
@@ -264,15 +265,15 @@ Monitor.subscribe(function(event)
     if event.type == "log" then
         wColor(THEME.info, ICONS.info .. " ")
         wBold("[" .. event.source .. "] ")
-        w(tostring(event.data) .. "\n")
+        w(tostring(event.data) .. RESET_ALL .. "\n")
     elseif event.type == "thought" then
         wColor(THEME.warning, ICONS.thinking .. " ")
         wDim("[" .. event.source .. "] " .. tostring(event.data))
-        w("\n")
+        w(RESET_ALL .. "\n")
     elseif event.type == "tool_call" then
         wColor(THEME.agent, ICONS.tool .. " ")
         wBold("[" .. event.source .. "] ")
-        w("→ " .. event.data.tool .. "\n")
+        w("→ " .. event.data.tool .. RESET_ALL .. "\n")
     elseif event.type == "tool_result" then
         -- Suppressed for cleanliness
     elseif event.type == "completion" then
@@ -505,6 +506,7 @@ end
 -- ═══════════════════════════════════════
 
 function TUI.renderMarkdown(text: string)
+    local lastWasBlank = false
     for line in text:gmatch("[^\n]*") do
         if line:match("^## ") then
             TUI.blank()
@@ -512,27 +514,35 @@ function TUI.renderMarkdown(text: string)
             w("\n")
             w("  ")
             TUI.divider(#line)
+            lastWasBlank = false
         elseif line:match("^# ") then
             TUI.blank()
             wBoldColor(THEME.warning, "  " .. line:sub(3))
             w("\n")
             w("  ")
             TUI.divider(#line + 4)
+            lastWasBlank = false
         elseif line:match("^%d+%. ") then
-            -- Numbered list
             local num, rest = line:match("^(%d+)%. (.*)")
             wColor(THEME.info, "  " .. num .. ". ")
-            w(rest .. "\n")
+            w(rest .. RESET_ALL .. "\n")
+            lastWasBlank = false
         elseif line:match("^%- ") then
-            -- Bullet list
             wColor(THEME.info, "  • ")
-            w(line:sub(3) .. "\n")
+            w(line:sub(3) .. RESET_ALL .. "\n")
+            lastWasBlank = false
         elseif line:match("^```") then
             wDim("  " .. string.rep("─", 40) .. "\n")
+            lastWasBlank = false
         elseif #line == 0 then
-            w("\n")
+            -- Collapse consecutive blank lines into one
+            if not lastWasBlank then
+                w("\n")
+            end
+            lastWasBlank = true
         else
             w("  " .. line .. "\n")
+            lastWasBlank = false
         end
     end
 end
