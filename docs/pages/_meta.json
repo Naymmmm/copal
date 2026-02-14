@@ -1,0 +1,13 @@
+{
+  "index": "Introduction",
+  "installation": "Installation",
+  "quickstart": "Quick Start",
+  "core-concepts": "Core Concepts",
+  "modes": {
+    "title": "Operating Modes",
+    "type": "page"
+  },
+  "configuration": "Configuration",
+  "reference": "API Reference",
+  "troubleshooting": "Troubleshooting"
+}

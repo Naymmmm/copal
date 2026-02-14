@@ -1,0 +1,113 @@
+# Swarm
+
+The Swarm module manages parallel execution of worker agents.
+
+## Overview
+
+```luau
+local Swarm = require("./core/Swarm")
+```
+
+## Constructor
+
+### Swarm.new(size, model)
+
+Creates a new Swarm instance.
+
+```luau
+function Swarm.new(
+    size: number?,      -- Max concurrent agents (default: Config.max_agents or 5)
+    model: string?      -- Model to use (default: Config.getActive().models.low)
+): SwarmInstance
+```
+
+**Example:**
+
+```luau
+local swarm = Swarm.new(5, "gpt-4o-mini")
+```
+
+## Methods
+
+### swarm:execute(subTasks)
+
+Executes a list of subtasks in parallel.
+
+```luau
+function Swarm:execute(
+    subTasks: {string}  -- List of task descriptions
+): {TaskResult}
+```
+
+**Returns:** Array of results, one per subtask:
+
+```luau
+type TaskResult = {
+    agentId: number,    -- Agent that executed this task
+    task: string,       -- Original task description
+    output: string?,    -- Final output or error message
+    status: "success" | "failed"
+}
+```
+
+**Example:**
+
+```luau
+local results = swarm:execute({
+    "Analyze src/core/*.luau for bugs",
+    "Check all TODO comments in the codebase",
+    "Review README.md for accuracy"
+})
+
+for _, result in ipairs(results) do
+    print(result.agentId, result.status, result.output)
+end
+```
+
+## Execution Flow
+
+1. **Coordination Phase** (if multiple tasks)
+   - Agents announce their plans
+   - Plans are shared on the blackboard
+
+2. **Execution Phase**
+   - Tasks are dispatched to agents
+   - Agents check blackboard for messages
+   - Tool calls are executed
+   - Progress is monitored
+
+3. **Completion**
+   - Results are collected
+   - Returned as array
+
+## Configuration
+
+Swarm behavior is controlled by:
+
+| Config | Effect |
+|--------|--------|
+| `max_agents` | Maximum concurrent agents |
+| `models.low` | Model used for agents |
+| `security_level` | Restricted vs full access |
+| `rate_limit_delay` | Delay between LLM calls |
+
+## Agent System Prompt
+
+Each agent receives a comprehensive system prompt including:
+
+- Available tools and their usage
+- Operating system and architecture
+- Current working directory
+- Security level restrictions
+- Team roster for coordination
+- Communication guidelines
+
+## Inter-Agent Communication
+
+Agents communicate via the shared blackboard:
+
+- **broadcast** - Message all agents
+- **whisper** - Private message
+- **request_help** - Signal for assistance
+- **report_progress** - Share updates
+- **delegate_task** - Spawn subtasks

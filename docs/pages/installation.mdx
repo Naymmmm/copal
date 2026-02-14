@@ -1,0 +1,88 @@
+import { Steps } from 'nextra/components'
+
+# Installation
+
+Copal requires [Lune](https://lune-org.github.io/docs), a standalone Luau runtime.
+
+## Prerequisites
+
+- **Lune** runtime (0.8.0 or later)
+- **Git** for cloning the repository
+- **API Key** from a supported provider (OpenRouter, OpenAI, etc.)
+
+## Install Lune
+
+<Steps>
+### Windows (Scoop)
+
+```bash
+scoop bucket add lune https://github.com/CompeyDev/lune-packaging.git
+scoop install lune
+```
+
+### macOS/Linux (Homebrew)
+
+```bash
+brew install lune
+```
+
+### Using Rokit
+
+```bash
+rokit add lune --global
+```
+
+### Using Cargo
+
+```bash
+cargo binstall lune
+# or
+cargo install lune --locked
+```
+</Steps>
+
+## Install Copal
+
+### Option 1: Using Pesde Registry (Recommended)
+
+The easiest way to install and run Copal is via the pesde registry:
+
+```bash
+# Download pesde from https://github.com/pesde-pkg/pesde/releases
+# On Unix: chmod +x pesde
+pesde self-install
+pesde x naymmmm/copal
+```
+
+### Option 2: Clone Repository
+
+For development or customization, clone the repository:
+
+```bash
+git clone https://github.com/Naymmmm/copal.git
+cd copal
+```
+
+## First Run
+
+Run Copal to start the setup wizard:
+
+```bash
+lune run src/main.luau
+```
+
+The wizard will:
+1. Prompt you to select a provider (OpenRouter, OpenAI, OpenCode, or Custom)
+2. Fetch available models from your provider
+3. Let you configure models for different intelligence tiers
+4. Securely store your API key
+
+## Verify Installation
+
+After setup, run Copal in interactive mode:
+
+```bash
+lune run src/main.luau
+```
+
+You should see the Copal header and interactive menu.

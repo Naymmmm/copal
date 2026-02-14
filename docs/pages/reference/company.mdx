@@ -1,0 +1,127 @@
+import { Callout } from 'nextra/components'
+
+# Company
+
+The Company module provides CEO-level orchestration for massive multi-swarm operations.
+
+## Overview
+
+```luau
+local Company = require("./core/Company")
+```
+
+## Constructor
+
+### Company.new()
+
+Creates a new Company instance.
+
+```luau
+function Company.new(): CompanyInstance
+```
+
+Uses the "high" tier model from configuration.
+
+**Example:**
+
+```luau
+local company = Company.new()
+```
+
+## Methods
+
+### company:start(mission)
+
+Starts the company on a mission.
+
+```luau
+function Company:start(
+    mission: string  -- High-level mission description
+): {DirectiveResult}?
+```
+
+**Returns:** Table mapping directives to their results, or nil if strategy failed.
+
+**Example:**
+
+```luau
+local company = Company.new()
+local results = company:start(
+    "Build a complete e-commerce platform with web and mobile apps"
+)
+
+for directive, directiveResults in pairs(results) do
+    print("Directive:", directive)
+    -- directiveResults is array of TaskResult
+end
+```
+
+## Execution Flow
+
+### Phase 1: Strategy Formulation
+
+The CEO creates 2-4 high-level directives:
+
+```
+Mission: "Build a SaaS platform"
+
+Directives:
+1. Backend API with auth, billing, and admin
+2. Frontend web dashboard
+3. Database schema and migrations
+```
+
+### Phase 2: Director Spawning
+
+For each directive, a Director is spawned:
+
+```luau
+for i, directive in ipairs(directives) do
+    Task.spawn(function()
+        local director = Director.new()
+        local results = director:planAndExecute(directive, mission)
+        directiveResults[directive] = results
+    end)
+end
+```
+
+### Phase 3: Parallel Execution
+
+Directors work in parallel on their directives.
+
+### Phase 4: Completion
+
+When all Directors finish, results are returned.
+
+## Architecture
+
+```
+CEO (High-tier model)
+    ├── Director 1 (Medium-tier) → Swarm (Low-tier)
+    ├── Director 2 (Medium-tier) → Swarm (Low-tier)
+    └── Director 3 (Medium-tier) → Swarm (Low-tier)
+```
+
+## Configuration
+
+| Config | Effect |
+|--------|--------|
+| `models.high` | Model used for CEO strategy |
+| `models.medium` | Model used for Directors |
+| `models.low` | Model used for Swarm agents |
+
+## Experimental Warning
+
+<Callout type="warning">
+Company Mode is experimental. It may:
+- Spawn many agents simultaneously
+- Consume significant API credits
+- Have limited cross-department coordination
+</Callout>
+
+## Best Practices
+
+1. **Start small** - Test with simple missions first
+2. **Monitor costs** - High-tier models + multiple Directors = expensive
+3. **Define scope** - Clear mission → better directives
+4. **Review outputs** - Check each department's results

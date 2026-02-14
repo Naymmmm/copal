@@ -1,0 +1,99 @@
+import { Callout, Cards, Card } from 'nextra/components'
+
+# Core Concepts
+
+Understanding Copal's architecture helps you use it effectively.
+
+## The Hierarchy of Intelligence
+
+Copal organizes AI agents in a three-tier hierarchy, similar to a tech company:
+
+### Tier 1: Swarm (Workers)
+
+The **Swarm** is a group of cost-effective agents (e.g., `gpt-4o-mini`, `grok-code`) that execute subtasks in parallel.
+
+**Characteristics:**
+- Fast and cost-efficient
+- Work independently on assigned subtasks
+- Communicate via the shared blackboard
+- Use tool calling to interact with the system
+
+**Best for:** Specific, well-defined tasks that can be parallelized
+
+### Tier 2: Director (Manager)
+
+The **Director** is a supervisor agent (e.g., `claude-3-5-sonnet`) that plans, delegates, reviews, and retries work.
+
+**Characteristics:**
+- Uses more capable (and expensive) models
+- Breaks down complex goals into actionable subtasks
+- Reviews swarm results and requests revisions if needed
+- Runs a review loop (up to 3 iterations)
+
+**Best for:** Complex projects requiring planning, coordination, and quality control
+
+### Tier 3: Company (CEO)
+
+The **Company** represents top-level CEO orchestration for massive multi-swarm operations.
+
+**Characteristics:**
+- Uses the highest-tier models
+- Formulates strategic directives
+- Spawns multiple Directors as "departments"
+- Coordinates parallel departmental work
+
+**Best for:** Large-scale projects requiring multiple specialized teams
+
+## Inter-Agent Communication
+
+Agents communicate through a shared **blackboard** (in-memory message bus):
+
+- **Broadcast** - Send messages to all agents
+- **Whisper** - Private message to a specific agent
+- **Request Help** - Signal that you're stuck and need assistance
+- **Report Progress** - Share status and files modified
+- **Delegate Task** - Spawn a subtask for another agent
+
+<Callout type="info">
+This communication system enables agents to coordinate, avoid duplicate work, and collaborate on complex tasks.
+</Callout>
+
+## Tool System
+
+Copal provides agents with a rich set of tools:
+
+### File System Tools
+- `read_file` / `read_file_lines` - Read file contents
+- `write_file` / `patch_file` / `append_file` - Write/modify files
+- `delete_file` / `move_file` / `copy_file` - File operations
+- `create_directory` / `list_files` - Directory operations
+
+### Terminal & Search Tools
+- `run_command` - Execute shell commands
+- `ripgrep` - Fast pattern search across files
+- `web_fetch` - HTTP GET for documentation and references
+
+### Communication Tools
+- `broadcast` / `whisper` - Inter-agent messaging
+- `request_help` / `report_progress` - Collaboration tools
+- `ask_user` - Get input from the human user
+
+### Reasoning & Flow Control
+- `think` - Internal scratchpad for planning
+- `sleep` / `wake` - Pause and resume agents
+- `delegate_task` - Spawn subtasks dynamically
+
+## Security Model
+
+Copal operates in two security modes:
+
+| Mode | Description |
+|------|-------------|
+| **Restricted** (default) | Agents can only operate within the current working directory. Commands require user approval. |
+| **Full Access** | Agents can access any file and run any command. Use with caution. |
+
+<Cards>
+  <Card title="Swarm Mode" href="/modes/swarm" />
+  <Card title="Director Mode" href="/modes/director" />
+  <Card title="Company Mode" href="/modes/company" />
+</Cards>

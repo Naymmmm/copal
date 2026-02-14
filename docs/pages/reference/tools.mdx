@@ -1,0 +1,327 @@
+# Tools
+
+The Tools system provides agents with capabilities to interact with the environment.
+
+## Overview
+
+Tools are registered in the **Registry** and made available to agents.
+
+```luau
+local Registry = require("./tools/Registry")
+```
+
+## Registry API
+
+### Registry.register(tool)
+
+Registers a new tool.
+
+```luau
+function Registry.register(tool: ToolDef)
+```
+
+**Tool Definition:**
+
+```luau
+type ToolDef = {
+    name: string,           -- Unique identifier
+    description: string,    -- Human-readable description
+    parameters: {           -- JSON Schema
+        type: "object",
+        properties: {...},
+        required: {string}?
+    },
+    execute: (args: any) -> any  -- Implementation
+}
+```
+
+### Registry.get(name)
+
+Retrieves a tool by name.
+
+```luau
+function Registry.get(name: string): ToolDef?
+```
+
+### Registry.getAllDefinitions()
+
+Returns all tools formatted for LLM tool calling.
+
+```luau
+function Registry.getAllDefinitions(): {Tool}
+```
+
+### Registry.validate(name, args)
+
+Validates tool arguments against schema.
+
+```luau
+function Registry.validate(
+    name: string,
+    args: any
+): (boolean, string?)
+```
+
+## Available Tools
+
+### File System
+
+#### read_file
+Reads entire file contents.
+
+```luau
+{
+    path: string  -- File path
+}
+```
+
+#### read_file_lines
+Reads specific line range.
+
+```luau
+{
+    path: string,
+    startLine: number?,
+    endLine: number?
+}
+```
+
+#### write_file
+Writes/overwrites a file.
+
+```luau
+{
+    path: string,
+    content: string
+}
+```
+
+#### patch_file
+Find-and-replace within a file.
+
+```luau
+{
+    path: string,
+    search: string,
+    replace: string
+}
+```
+
+#### append_file
+Appends content to end of file.
+
+```luau
+{
+    path: string,
+    content: string
+}
+```
+
+#### delete_file
+Deletes a file.
+
+```luau
+{
+    path: string
+}
+```
+
+#### move_file
+Moves or renames a file.
+
+```luau
+{
+    source: string,
+    destination: string
+}
+```
+
+#### copy_file
+Copies a file.
+
+```luau
+{
+    source: string,
+    destination: string
+}
+```
+
+#### create_directory
+Creates a directory.
+
+```luau
+{
+    path: string
+}
+```
+
+#### list_files
+Lists files in a directory.
+
+```luau
+{
+    path: string,
+    recursive: boolean?
+}
+```
+
+### Terminal
+
+#### run_command
+Executes a shell command.
+
+```luau
+{
+    command: string,  -- Command to run
+    args: {string}?   -- Arguments
+}
+```
+
+**Security:** Requires approval in restricted mode.
+
+### Search
+
+#### ripgrep
+Fast pattern search across files.
+
+```luau
+{
+    pattern: string,   -- Search pattern
+    path: string?,     -- Directory to search
+    filePattern: string?  -- File glob pattern
+}
+```
+
+### Communication
+
+#### broadcast
+Sends message to all agents.
+
+```luau
+{
+    message: string,
+    priority: "low" | "normal" | "high"?
+}
+```
+
+#### whisper
+Private message to specific agent.
+
+```luau
+{
+    target: string,    -- Agent name (e.g., "Agent 2")
+    message: string
+}
+```
+
+#### request_help
+Signals need for assistance.
+
+```luau
+{
+    topic: string,
+    details: string,
+    expertise_needed: string?
+}
+```
+
+#### report_progress
+Shares status update.
+
+```luau
+{
+    status: string,     -- e.g., "completed", "in_progress"
+    summary: string,
+    files_modified: string?
+}
+```
+
+### Interaction
+
+#### ask_user
+Asks the user a question.
+
+```luau
+{
+    question: string
+}
+```
+
+### Reasoning & Flow Control
+
+#### think
+Internal scratchpad for planning.
+
+```luau
+{
+    thought: string
+}
+```
+
+#### sleep
+Pauses agent execution.
+
+```luau
+{
+    duration: number,  -- Seconds (1-30)
+    reason: string
+}
+```
+
+#### wake
+Wakes a sleeping agent.
+
+```luau
+{
+    target: string,    -- Agent name
+    reason: string
+}
+```
+
+#### delegate_task
+Spawns a subtask.
+
+```luau
+{
+    task: string,
+    context: string?,
+    priority: "low" | "normal" | "high"?,
+    preferred_agent: string?
+}
+```
+
+### Web
+
+#### web_fetch
+HTTP GET request.
+
+```luau
+{
+    url: string
+}
+```
+
+## Creating Custom Tools
+
+```luau
+local Registry = require("./tools/Registry")
+
+Registry.register({
+    name = "my_custom_tool",
+    description = "Does something useful",
+    parameters = {
+        type = "object",
+        properties = {
+            input = {
+                type = "string",
+                description = "Input to process"
+            }
+        },
+        required = {"input"}
+    },
+    execute = function(args)
+        -- Implementation
+        return "Result: " .. args.input
+    end
+})
+```

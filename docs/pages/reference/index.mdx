@@ -1,0 +1,55 @@
+# API Reference
+
+This section documents Copal's core APIs for developers who want to extend or integrate with the framework.
+
+## Architecture Overview
+
+```
+src/
+├── core/           # Core orchestration logic
+│   ├── Swarm.luau      # Worker agent management
+│   ├── Director.luau   # Supervisor with review loop
+│   └── Company.luau    # CEO orchestration
+├── models/         # LLM interaction
+│   └── LLMClient.luau  # Unified LLM API client
+├── tools/          # Agent capabilities
+│   ├── Registry.luau   # Tool registration
+│   ├── FileSystem.luau # File operations
+│   ├── Terminal.luau   # Command execution
+│   └── Communication.luau # Inter-agent messaging
+├── lib/            # Utilities
+│   ├── Config.luau     # Configuration management
+│   ├── Logger.luau     # Logging utilities
+│   └── Monitor.luau    # Event monitoring
+└── ui/             # User interface
+    ├── TUI.luau        # Terminal UI
+    └── Wizard.luau     # Setup wizard
+```
+
+## Module Categories
+
+### Orchestration
+
+The **core** modules implement Copal's hierarchy of intelligence:
+
+- **[Swarm](/reference/swarm)** - Parallel worker execution
+- **[Director](/reference/director)** - Planning and review
+- **[Company](/reference/company)** - High-level orchestration
+
+### LLM Integration
+
+**LLMClient** provides a unified interface to any OpenAI-compatible API:
+
+- **[LLMClient](/reference/llmclient)** - Request handling, retries, usage tracking
+
+### Tools
+
+The **tools** system gives agents capabilities:
+
+- **[Tools](/reference/tools)** - Registry and available tools
+
+### Utilities
+
+Supporting libraries for configuration, logging, and monitoring:
+
+- **[Config](/reference/config)** - Configuration management

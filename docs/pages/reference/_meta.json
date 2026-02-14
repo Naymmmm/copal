@@ -1,0 +1,9 @@
+{
+  "index": "Overview",
+  "swarm": "Swarm",
+  "director": "Director",
+  "company": "Company",
+  "llmclient": "LLMClient",
+  "tools": "Tools",
+  "config": "Config"
+}

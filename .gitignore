@@ -1,3 +1,5 @@
 copal_config.json
 node_modules
 /agents
+dist
+.next

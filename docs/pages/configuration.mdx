@@ -1,0 +1,207 @@
+import { Callout, Steps } from 'nextra/components'
+
+# Configuration
+
+Copal stores configuration in `~/.copal_config.json` in your home directory.
+
+## Configuration File
+
+```json
+{
+  "active_provider": "openrouter",
+  "security_level": "restricted",
+  "shell_preference": "auto",
+  "rate_limit_delay": 0,
+  "max_agents": 5,
+  "providers": {
+    "openrouter": {
+      "url": "https://openrouter.ai/api/v1",
+      "key": "sk-or-v1-...",
+      "models": {
+        "low": "x-ai/grok-code-fast-1",
+        "medium": "anthropic/claude-3.5-sonnet",
+        "high": "openai/o1-preview",
+        "search": "x-ai/grok-4.1-fast"
+      }
+    }
+  }
+}
+```
+
+## Global Settings
+
+| Setting | Type | Description | Default |
+|---------|------|-------------|---------|
+| `active_provider` | string | Which provider to use | `"opencode"` |
+| `security_level` | string | `"restricted"` or `"full_access"` | `"restricted"` |
+| `shell_preference` | string | `"auto"`, `"pwsh"`, `"powershell"`, `"bash"`, `"cmd"` | `"auto"` |
+| `rate_limit_delay` | number | Seconds between LLM calls (0 = no delay) | `0` |
+| `max_agents` | number | Maximum concurrent agents in swarm | `5` |
+
+### Security Levels
+
+**Restricted** (recommended):
+- Agents can only access files in the current working directory
+- Commands require user approval
+- Safer for general use
+
+**Full Access**:
+- Agents can access any file on the system
+- Commands run without approval
+- Use with caution
+
+## Provider Configuration
+
+Each provider has its own configuration block:
+
+```json
+{
+  "url": "https://api.example.com/v1",
+  "key": "your-api-key",
+  "models": {
+    "low": "model-for-swarm",
+    "medium": "model-for-director",
+    "high": "model-for-ceo",
+    "search": "model-for-web-search"
+  }
+}
+```
+
+### Supported Providers
+
+<Steps>
+### OpenRouter (Recommended)
+
+Best model variety and pricing:
+
+```json
+{
+  "openrouter": {
+    "url": "https://openrouter.ai/api/v1",
+    "key": "sk-or-v1-...",
+    "models": {
+      "low": "liquid/lfm-40b",
+      "medium": "anthropic/claude-3.5-sonnet",
+      "high": "openai/o1-preview",
+      "search": "x-ai/grok-4.1-fast"
+    }
+  }
+}
+```
+
+### OpenAI
+
+```json
+{
+  "openai": {
+    "url": "https://api.openai.com/v1",
+    "key": "sk-...",
+    "models": {
+      "low": "gpt-4o-mini",
+      "medium": "gpt-4o",
+      "high": "o1-preview",
+      "search": "gpt-4o"
+    }
+  }
+}
+```
+
+### OpenCode
+
+```json
+{
+  "opencode": {
+    "url": "https://api.opencode.com/v1",
+    "key": "...",
+    "models": {
+      "low": "gpt-4o-mini",
+      "medium": "gpt-4o",
+      "high": "o1",
+      "search": "perplexity/sonar-reasoning"
+    }
+  }
+}
+```
+
+### Custom (Local LLM)
+
+For Ollama, LM Studio, or other local endpoints:
+
+```json
+{
+  "custom": {
+    "url": "http://localhost:11434/v1",
+    "key": "sk-proj-custom",
+    "models": {
+      "low": "llama3",
+      "medium": "llama3",
+      "high": "llama3",
+      "search": "llama3"
+    }
+  }
+}
+```
+</Steps>
+
+<Callout type="tip">
+For local LLMs via Ollama, make sure you have the OpenAI-compatible API enabled with `OLLAMA_ORIGINS=* ollama serve`
+</Callout>
+
+## Model Tiers
+
+| Tier | Used By | Recommended Models |
+|------|---------|-------------------|
+| `low` | Swarm agents | Fast, cheap models (GPT-4o-mini, Grok-code-fast) |
+| `medium` | Directors | Capable models for planning (Claude 3.5 Sonnet, GPT-4o) |
+| `high` | CEO | Most capable models (o1-preview, o1) |
+| `search` | Web search | Models with web access (Grok, Perplexity) |
+
+## Changing Settings
+
+You can change settings via:
+
+1. **Settings Menu**: Run Copal and select "Settings"
+2. **Manual Edit**: Edit `~/.copal_config.json` directly
+3. **Environment Variables**: Set `COPAL_PROVIDER` to override active provider
+
+## Example Configurations
+
+### Budget-Friendly Setup
+
+```json
+{
+  "active_provider": "openrouter",
+  "providers": {
+    "openrouter": {
+      "key": "sk-or-v1-...",
+      "models": {
+        "low": "liquid/lfm-40b",
+        "medium": "liquid/lfm-40b",
+        "high": "anthropic/claude-3.5-sonnet",
+        "search": "liquid/lfm-40b"
+      }
+    }
+  }
+}
+```
+
+### Performance-Focused Setup
+
+```json
+{
+  "active_provider": "openrouter",
+  "max_agents": 10,
+  "rate_limit_delay": 0,
+  "providers": {
+    "openrouter": {
+      "key": "sk-or-v1-...",
+      "models": {
+        "low": "x-ai/grok-code-fast-1",
+        "medium": "anthropic/claude-3.5-sonnet",
+        "high": "openai/o1-preview",
+        "search": "x-ai/grok-4.1-fast"
+      }
+    }
+  }
+}
+```

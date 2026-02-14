@@ -1,0 +1,172 @@
+import { Callout } from 'nextra/components'
+
+# Troubleshooting
+
+Common issues and their solutions.
+
+## 400 Bad Request
+
+**Problem**: The API returns a 400 error.
+
+**Causes & Solutions**:
+
+1. **Model doesn't support tool calling**
+   - Some models (especially local ones) struggle with function calling
+   - Solution: Use models known to support tools (Claude, GPT-4, Grok)
+
+2. **Invalid model name**
+   - The model ID might be incorrect
+   - Solution: Check available models in your provider dashboard
+
+3. **Malformed request**
+   - Sometimes the request format isn't compatible
+   - Solution: Try a different provider or model
+
+## "Tool not found" Error
+
+**Problem**: Agent tries to use a tool that doesn't exist.
+
+**Cause**: The LLM hallucinated a tool name.
+
+**Solutions**:
+- Use Director Mode, which has a review loop to catch these errors
+- Use models with better tool calling support
+- The error is usually harmless—agents recover and try again
+
+## Network Errors
+
+**Problem**: Cannot connect to API.
+
+**Causes & Solutions**:
+
+1. **Custom provider URL incorrect**
+   ```json
+   // Wrong
+   "url": "http://localhost:11434"
+   
+   // Correct
+   "url": "http://localhost:11434/v1"
+   ```
+
+2. **API key missing or invalid**
+   - Check that your key is set correctly in `~/.copal_config.json`
+   - Run `lune run src/main.luau -- --setup` to reconfigure
+
+3. **Rate limiting**
+   - You're making too many requests
+   - Solution: Increase `rate_limit_delay` in config
+
+## Commands Not Executing
+
+**Problem**: Agents can't run commands.
+
+**Causes**:
+
+1. **In restricted mode**, commands require approval
+   - Check the TUI for approval prompts
+   - Approve commands to allow execution
+
+2. **Wrong shell commands for OS**
+   - Windows uses PowerShell, not bash
+   - Solution: Agents are told the OS in their system prompt
+
+## High API Costs
+
+**Problem**: Using too many tokens or expensive models.
+
+**Solutions**:
+
+1. **Use cheaper models for swarm**
+   ```json
+   {
+     "models": {
+       "low": "gpt-4o-mini",      // Cheapest
+       "medium": "claude-3.5-sonnet",
+       "high": "gpt-4o"
+     }
+   }
+   ```
+
+2. **Reduce max_agents**
+   ```json
+   {
+     "max_agents": 3  // Instead of 5
+   }
+   ```
+
+3. **Add rate limiting**
+   ```json
+   {
+     "rate_limit_delay": 1  // 1 second between calls
+   }
+   ```
+
+4. **Start with Director Mode**
+   - More efficient than Company Mode for most tasks
+   - Better planning = fewer iterations
+
+## Agents Stuck or Hanging
+
+**Problem**: Execution seems to stop or hang.
+
+**Causes & Solutions**:
+
+1. **Waiting for user input**
+   - Check if there's an approval prompt
+   - Agents may be asking for permission to run commands
+
+2. **Rate limiting from provider**
+   - Some providers throttle requests
+   - Solution: Add `rate_limit_delay` to config
+
+3. **Sleeping agents**
+   - Agents might be intentionally sleeping (use `wake` tool)
+   - Check the TUI dashboard for agent status
+
+## Configuration Not Loading
+
+**Problem**: Settings changes don't take effect.
+
+**Solutions**:
+
+1. **Check config file location**
+   - Must be at `~/.copal_config.json` (home directory)
+   - Not in the project directory
+
+2. **Validate JSON**
+   - Ensure the config is valid JSON
+   - Use a JSON validator if unsure
+
+3. **Restart Copal**
+   - Config is loaded at startup
+   - Changes require restart
+
+## Lune Not Found
+
+**Problem**: `lune` command not recognized.
+
+**Solutions**:
+
+1. **Check installation**
+   ```bash
+   which lune      # macOS/Linux
+   where lune      # Windows
+   ```
+
+2. **Add to PATH**
+   - Windows: Add Scoop shims to PATH
+   - macOS/Linux: Ensure `~/.cargo/bin` is in PATH
+
+3. **Reinstall**
+   ```bash
+   cargo install lune --locked
+   ```
+
+## Getting Help
+
+If you're still stuck:
+
+1. **Check the logs** - Copal logs detailed information
+2. **Run with --setup** - Reconfigure from scratch
+3. **Check GitHub Issues** - [github.com/Naymmmm/copal/issues](https://github.com/Naymmmm/copal/issues)
+4. **Enable verbose logging** - Modify Logger.luau to increase verbosity

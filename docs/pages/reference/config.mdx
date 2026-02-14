@@ -1,0 +1,192 @@
+# Config
+
+The Config module manages Copal's configuration file.
+
+## Overview
+
+```luau
+local Config = require("./lib/Config")
+```
+
+## Configuration Structure
+
+```luau
+type Config = {
+    configFile: string,           -- Path to config file
+    active_provider: string,      -- Currently active provider
+    security_level: string,       -- "restricted" or "full_access"
+    shell_preference: string,     -- "auto", "pwsh", "powershell", "bash", "cmd"
+    rate_limit_delay: number,     -- Seconds between LLM calls
+    max_agents: number,           -- Max concurrent agents
+    providers: {[string]: ProviderConfig}
+}
+
+type ProviderConfig = {
+    url: string,
+    key: string,
+    models: {
+        low: string,
+        medium: string,
+        high: string,
+        search: string
+    }
+}
+```
+
+## Functions
+
+### Config.load()
+
+Loads configuration from disk.
+
+```luau
+function Config.load(): boolean
+```
+
+Returns `true` if config was loaded successfully, `false` otherwise.
+
+**Example:**
+
+```luau
+Config.load()
+print("Active provider:", Config.active_provider)
+```
+
+### Config.save()
+
+Saves configuration to disk.
+
+```luau
+function Config.save()
+```
+
+**Example:**
+
+```luau
+Config.max_agents = 10
+Config.save()
+```
+
+### Config.exists()
+
+Checks if config file exists.
+
+```luau
+function Config.exists(): boolean
+```
+
+**Example:**
+
+```luau
+if not Config.exists() then
+    print("Please run setup wizard")
+end
+```
+
+### Config.getActive()
+
+Returns the active provider configuration.
+
+```luau
+function Config.getActive(): ProviderConfig
+```
+
+**Example:**
+
+```luau
+local provider = Config.getActive()
+print("URL:", provider.url)
+print("Model (low):", provider.models.low)
+```
+
+## Default Configuration
+
+```luau
+{
+    active_provider = "opencode",
+    security_level = "restricted",
+    shell_preference = "auto",
+    rate_limit_delay = 0,
+    max_agents = 5,
+    providers = {
+        opencode = {
+            url = "https://api.opencode.com/v1",
+            key = "",
+            models = {
+                low = "gpt-4o-mini",
+                medium = "gpt-4o",
+                high = "o1",
+                search = "perplexity/sonar-reasoning"
+            }
+        },
+        openrouter = {...},
+        openai = {...},
+        custom = {...}
+    }
+}
+```
+
+## Config File Location
+
+The configuration is stored at `~/.copal_config.json`:
+
+- **Windows**: `%USERPROFILE%\.copal_config.json`
+- **macOS/Linux**: `~/.copal_config.json`
+
+## Environment Variables
+
+You can override configuration with environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `COPAL_PROVIDER` | Override active provider |
+
+## Usage Examples
+
+### Reading Configuration
+
+```luau
+Config.load()
+
+-- Get current settings
+print("Provider:", Config.active_provider)
+print("Security:", Config.security_level)
+print("Max agents:", Config.max_agents)
+
+-- Get provider details
+local provider = Config.getActive()
+print("API URL:", provider.url)
+```
+
+### Modifying Configuration
+
+```luau
+Config.load()
+
+-- Change settings
+Config.max_agents = 10
+Config.rate_limit_delay = 0.5
+
+-- Save changes
+Config.save()
+```
+
+### Adding a Provider
+
+```luau
+Config.load()
+
+Config.providers["myprovider"] = {
+    url = "https://api.myprovider.com/v1",
+    key = "sk-...",
+    models = {
+        low = "model-small",
+        medium = "model-medium",
+        high = "model-large",
+        search = "model-search"
+    }
+}
+
+Config.active_provider = "myprovider"
+Config.save()
+```

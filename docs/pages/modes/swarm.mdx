@@ -1,0 +1,108 @@
+import { Callout } from 'nextra/components'
+
+# Swarm Mode
+
+Swarm Mode deploys multiple worker agents to execute tasks in parallel.
+
+## Overview
+
+In Swarm Mode, Copal spawns a configurable number of worker agents that:
+- Execute subtasks concurrently
+- Communicate via the shared blackboard
+- Use cost-effective models (configured as "low" tier)
+- Coordinate to avoid duplicate work
+
+## How It Works
+
+### Phase 1: Coordination
+
+When multiple agents are working, they first announce their plans to the team:
+
+1. Each agent describes their approach
+2. Plans are shared on the blackboard
+3. Agents can see what others are working on
+
+### Phase 2: Execution
+
+Agents work on their assigned tasks:
+- Check the blackboard for messages from other agents
+- Use tools to interact with the file system and terminal
+- Report progress periodically
+- Request help if stuck
+
+### Phase 3: Completion
+
+Results are collected and returned when all agents finish.
+
+## Configuration
+
+Configure swarm behavior in `~/.copal_config.json`:
+
+```json
+{
+  "max_agents": 5,
+  "providers": {
+    "openrouter": {
+      "models": {
+        "low": "x-ai/grok-code-fast-1"
+      }
+    }
+  }
+}
+```
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `max_agents` | Maximum concurrent agents | 5 |
+| `models.low` | Model used for swarm agents | Provider-specific |
+
+## Usage
+
+### Interactive Mode
+
+```bash
+lune run src/main.luau
+# Select "Swarm Mode"
+# Enter your task
+```
+
+### CLI Mode
+
+```bash
+lune run src/main.luau -- --mode swarm --task "Your task here"
+```
+
+## Example Tasks
+
+Swarm mode excels at tasks that can be parallelized:
+
+```
+# Code Analysis
+"Analyze all files in the src directory and identify potential bugs"
+
+# Documentation
+"Generate documentation for all public functions in the codebase"
+
+# Refactoring
+"Rename all instances of 'oldName' to 'newName' across the project"
+
+# Testing
+"Run all tests and summarize the results"
+```
+
+<Callout type="tip">
+For complex tasks requiring planning and review, use **Director Mode** instead.
+</Callout>
+
+## Best Practices
+
+1. **Keep tasks specific** - Swarm agents work best with clear, well-defined tasks
+2. **Enable communication** - Use broadcast/whisper to coordinate when tasks overlap
+3. **Monitor progress** - Watch the TUI dashboard for agent status updates
+4. **Use appropriate models** - Low-cost models are fine for simple tasks
+
+## Limitations
+
+- No automatic task decomposition (use Director Mode for that)
+- Agents may duplicate work if not coordinated
+- Limited retry logic (results are returned as-is)

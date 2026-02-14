@@ -1,0 +1,118 @@
+# Director
+
+The Director module provides planning, execution, and review capabilities.
+
+## Overview
+
+```luau
+local Director = require("./core/Director")
+```
+
+## Constructor
+
+### Director.new()
+
+Creates a new Director instance.
+
+```luau
+function Director.new(): DirectorInstance
+```
+
+Uses the "medium" tier model from configuration.
+
+**Example:**
+
+```luau
+local director = Director.new()
+```
+
+## Methods
+
+### director:planAndExecute(goal, context)
+
+Plans and executes a goal with review loop.
+
+```luau
+function Director:planAndExecute(
+    goal: string,       -- The high-level goal
+    context: string?    -- Optional mission context
+): {TaskResult}?
+```
+
+**Returns:** Array of task results, or nil if planning failed.
+
+**Example:**
+
+```luau
+local director = Director.new()
+local results = director:planAndExecute(
+    "Refactor the auth module",
+    "Part of larger security audit"
+)
+```
+
+## Execution Flow
+
+### Phase 1: Decomposition
+
+The Director breaks the goal into subtasks:
+
+- Simple goals: 1-3 tasks
+- Medium goals: 3-5 tasks
+- Complex goals: 5-8 tasks
+
+Tasks are returned as a JSON array of strings.
+
+### Phase 2: Plan Display
+
+The plan is rendered through the TUI for user visibility.
+
+### Phase 3: Execution
+
+Tasks are dispatched to a Swarm for parallel execution.
+
+### Phase 4: Review Loop
+
+```
+Review Cycle 1: Execute → Review
+        ↓ (if revisions needed)
+Review Cycle 2: Execute → Review
+        ↓ (if revisions needed)
+Review Cycle 3: Execute → Review → Complete
+```
+
+Maximum 3 review cycles.
+
+## Review Logic
+
+The Director examines results and decides:
+
+- **SUCCESS**: Goal achieved, stop
+- **REVISION NEEDED**: New tasks created, continue
+
+The review prompt instructs the LLM to:
+- Check if results satisfy the original goal
+- Return `SUCCESS` or a JSON array of fix tasks
+- Provide adjusted (not original) tasks for fixes
+
+## Configuration
+
+| Config | Effect |
+|--------|--------|
+| `models.medium` | Model used for planning and review |
+| `max_agents` | Passed to Swarm |
+
+## Example Use Cases
+
+```luau
+-- Feature development
+local results = director:planAndExecute(
+    "Add OAuth2 authentication with Google and GitHub"
+)
+
+-- Refactoring with context
+local results = director:planAndExecute(
+    "Migrate from callbacks to async/await",
+    "Server modernization project"
+)
+```

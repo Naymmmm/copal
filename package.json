@@ -1,0 +1,25 @@
+{
+  "name": "copal-docs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd docs && next dev",
+    "build": "cd docs && next build",
+    "start": "cd docs && next start",
+    "pages:dev": "wrangler pages dev",
+    "pages:deploy": "wrangler pages deploy"
+  },
+  "dependencies": {
+    "next": "^14.0.0",
+    "nextra": "^2.13.2",
+    "nextra-theme-docs": "^2.13.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.0.0"
+  }
+}

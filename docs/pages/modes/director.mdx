@@ -1,0 +1,131 @@
+import { Callout } from 'nextra/components'
+
+# Director Mode
+
+Director Mode uses a supervisor agent to plan, delegate, review, and iterate until the goal is achieved.
+
+## Overview
+
+The Director is like a technical lead who:
+1. Breaks down complex goals into actionable subtasks
+2. Delegates to a swarm of worker agents
+3. Reviews the results
+4. Requests revisions if needed (up to 3 review cycles)
+
+## How It Works
+
+### Phase 1: Planning
+
+The Director analyzes your goal and creates a plan:
+
+```
+Goal: "Build a REST API for user authentication"
+
+Plan:
+1. Create project structure and dependencies
+2. Implement user model and database schema
+3. Build registration endpoint
+4. Build login endpoint with JWT
+5. Add authentication middleware
+```
+
+The Director intelligently sizes the plan based on complexity:
+- Simple goals: 1-3 tasks
+- Medium goals: 3-5 tasks
+- Complex goals: 5-8 tasks
+
+### Phase 2: Execution
+
+The Director dispatches tasks to the swarm for execution.
+
+### Phase 3: Review
+
+After execution, the Director reviews the results:
+
+- **If satisfied**: Returns SUCCESS and completes
+- **If issues found**: Creates new tasks to fix problems and re-executes
+
+This review loop continues for up to 3 iterations.
+
+## Configuration
+
+Configure Director behavior in `~/.copal_config.json`:
+
+```json
+{
+  "providers": {
+    "openrouter": {
+      "models": {
+        "medium": "anthropic/claude-3.5-sonnet"
+      }
+    }
+  }
+}
+```
+
+The Director uses the "medium" tier model by default.
+
+## Usage
+
+### Interactive Mode
+
+```bash
+lune run src/main.luau
+# Select "Director Mode"
+# Enter your goal
+```
+
+### CLI Mode
+
+```bash
+lune run src/main.luau -- --mode director --goal "Your goal here"
+```
+
+## Example Goals
+
+Director mode excels at complex, multi-step projects:
+
+```
+# Feature Development
+"Add user authentication with JWT tokens and role-based access control"
+
+# Refactoring
+"Refactor the monolithic server.js into separate route modules"
+
+# Architecture
+"Migrate from Express to Fastify with proper error handling"
+
+# Testing
+"Set up Jest with 80% code coverage for all API endpoints"
+```
+
+<Callout type="tip">
+Be descriptive in your goals. The better the Director understands what you want, the better the plan will be.
+</Callout>
+
+## The Review Loop
+
+The review loop is what makes Director mode powerful:
+
+1. **Initial Execution**: Tasks are completed by the swarm
+2. **Director Review**: Examines results against the original goal
+3. **Decision**:
+   - SUCCESS: Goal achieved, finish
+   - REVISION NEEDED: Create fix tasks, go to step 4
+4. **Fix Execution**: New tasks are dispatched
+5. **Repeat**: Back to step 2 (max 3 cycles)
+
+This ensures quality even when initial attempts have issues.
+
+## Best Practices
+
+1. **Describe the "what", not the "how"** - Let the Director figure out the implementation
+2. **Include context** - Mention frameworks, constraints, or preferences
+3. **Be specific about quality** - "with proper error handling", "following best practices"
+4. **Review the plan** - You can see the Director's plan before execution starts
+
+## Limitations
+
+- Review cycles are limited to 3 iterations
+- Very complex goals may need to be broken down manually
+- The Director doesn't have access to runtime behavior (only static analysis)

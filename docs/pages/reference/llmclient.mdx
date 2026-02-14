@@ -1,0 +1,133 @@
+# LLMClient
+
+The LLMClient module provides a unified interface to OpenAI-compatible APIs.
+
+## Overview
+
+```luau
+local LLMClient = require("./models/LLMClient")
+```
+
+## Functions
+
+### LLMClient.completion(messages, model, tools, toolChoice)
+
+Makes a chat completion request.
+
+```luau
+function LLMClient.completion(
+    messages: {Message},      -- Conversation history
+    model: string,            -- Model identifier
+    tools: {Tool}?,           -- Available tools (optional)
+    toolChoice: any?          -- Tool choice strategy (optional)
+): (string?, {ToolCall}?)
+```
+
+**Returns:**
+- `content`: Response text (may be nil if only tool calls)
+- `toolCalls`: Array of tool calls to execute (optional)
+
+**Message Type:**
+
+```luau
+type Message = {
+    role: "system" | "user" | "assistant" | "tool",
+    content: string?,
+    tool_calls: {any}?,
+    tool_call_id: string?
+}
+```
+
+**Example:**
+
+```luau
+local messages = {
+    {role = "system", content = "You are a helpful assistant."},
+    {role = "user", content = "What is 2+2?"}
+}
+
+local response, toolCalls = LLMClient.completion(
+    messages,
+    "gpt-4o-mini",
+    nil,  -- no tools
+    nil   -- no tool choice
+)
+
+print(response)  -- "4"
+```
+
+### LLMClient.getUsage()
+
+Returns usage statistics.
+
+```luau
+function LLMClient.getUsage(): UsageStats
+```
+
+**Returns:**
+
+```luau
+type UsageStats = {
+    requests: number,
+    promptTokens: number,
+    completionTokens: number,
+    totalTokens: number,
+    errors: number,
+    retries: number,
+    avgLatencyMs: number
+}
+```
+
+**Example:**
+
+```luau
+local usage = LLMClient.getUsage()
+print(string.format(
+    "Made %d requests, used %d tokens",
+    usage.requests,
+    usage.totalTokens
+))
+```
+
+### LLMClient.resetUsage()
+
+Resets usage statistics to zero.
+
+```luau
+function LLMClient.resetUsage()
+```
+
+## Features
+
+### Retry Logic
+
+- Automatically retries on rate limits (429) and server errors (5xx)
+- Up to 3 attempts with exponential backoff
+- Logs warnings for retries
+
+### Rate Limiting
+
+Respects `Config.rate_limit_delay` between requests.
+
+### Tool Call Parsing
+
+Supports multiple tool call formats:
+1. Native OpenAI tool_calls
+2. Text-based: `<|tool_call_start|>[func(args)]<|tool_call_end|>`
+3. JSON blocks with name/arguments
+4. Code blocks with function calls
+
+### Error Handling
+
+- Network failures are logged and retried
+- Invalid JSON responses are handled gracefully
+- Missing API keys return nil with error log
+
+## Configuration
+
+| Config | Effect |
+|--------|--------|
+| `active_provider` | Which provider config to use |
+| `providers.*.url` | API endpoint URL |
+| `providers.*.key` | API key |
+| `rate_limit_delay` | Seconds between requests |

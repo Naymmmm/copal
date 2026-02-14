@@ -1,0 +1,138 @@
+import { Callout } from 'nextra/components'
+
+# Company Mode
+
+Company Mode represents the top tier of Copal's hierarchy—a CEO orchestrating multiple Directors as departments.
+
+## Overview
+
+In Company Mode, Copal simulates a software company structure:
+
+- **CEO**: High-tier AI model that formulates strategy
+- **Departments**: Directors spawned to handle specific directives
+- **Workers**: Swarm agents executing tasks within each department
+
+## How It Works
+
+### Phase 1: Strategic Planning
+
+The CEO analyzes the mission and creates 2-4 high-level directives:
+
+```
+Mission: "Build a full-stack e-commerce platform"
+
+Directives:
+1. Backend API with user auth, products, and orders
+2. Frontend web application with shopping cart
+3. Database design and migration system
+4. Deployment and CI/CD pipeline
+```
+
+### Phase 2: Department Creation
+
+For each directive, the CEO spawns a Director:
+
+```
+Directive 1 → Director 1 (Backend) → Swarm of agents
+Directive 2 → Director 2 (Frontend) → Swarm of agents
+Directive 3 → Director 3 (Database) → Swarm of agents
+Directive 4 → Director 4 (DevOps) → Swarm of agents
+```
+
+### Phase 3: Parallel Execution
+
+All Directors work in parallel on their respective domains, with the CEO monitoring overall progress.
+
+### Phase 4: Integration
+
+Once all departments complete their work, the mission is considered complete.
+
+## Configuration
+
+Company mode uses the "high" tier model for the CEO:
+
+```json
+{
+  "providers": {
+    "openrouter": {
+      "models": {
+        "high": "openai/o1-preview"
+      }
+    }
+  }
+}
+```
+
+## Usage
+
+### Interactive Mode
+
+```bash
+lune run src/main.luau
+# Select "Company Mode"
+# Enter your mission
+```
+
+### CLI Mode
+
+```bash
+lune run src/main.luau -- --mode company --mission "Your mission here"
+```
+
+## Example Missions
+
+Company mode is designed for large-scale projects:
+
+```
+# Full Applications
+"Build a complete SaaS platform with auth, billing, and admin dashboard"
+
+# System Architecture
+"Create a microservices architecture with API gateway, service mesh, and monitoring"
+
+# Complex Migrations
+"Migrate a monolithic application to microservices with zero downtime"
+
+# Multi-Platform Projects
+"Build a mobile app, web app, and backend API for a social network"
+```
+
+<Callout type="warning">
+Company Mode is experimental. While powerful, it may spawn many agents and consume significant API credits. Start with smaller missions to understand the behavior.
+</Callout>
+
+## Architecture
+
+```
+┌─────────────────────────────────────┐
+│              CEO                    │
+│         (High-tier model)           │
+│    Strategy & Orchestration         │
+└──────────────┬──────────────────────┘
+               │
+       ┌───────┴───────┐
+       │               │
+   ┌───▼───┐      ┌───▼───┐
+   │Dir. 1 │      │Dir. 2 │
+   │Backend│      │Frontend
+   └───┬───┘      └───┬───┘
+       │               │
+   ┌───▼───┐      ┌───▼───┐
+   │Swarm  │      │Swarm  │
+   │Agents │      │Agents │
+   └───────┘      └───────┘
+```
+
+## Best Practices
+
+1. **Define clear scope** - The mission should be large but well-defined
+2. **Allow parallel work** - Directors work independently; minimize cross-dependencies
+3. **Monitor costs** - High-tier models + multiple Directors = higher API costs
+4. **Review incrementally** - Check progress of each department as they complete
+
+## Limitations
+
+- **Experimental**: API and behavior may change
+- **No cross-department coordination**: Directors work in isolation
+- **Resource intensive**: Spawns many agents and API calls
+- **Integration phase is minimal**: CEO doesn't deeply integrate department outputs
