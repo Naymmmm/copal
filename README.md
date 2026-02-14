@@ -7,9 +7,7 @@
  \___\___/| .__/ \__,_|_|
           | |            
           |_| 
-
-    Agents have just
-        evolved           
+                  
 ```
 
 # Copal
