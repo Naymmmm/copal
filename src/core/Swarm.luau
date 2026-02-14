@@ -199,7 +199,10 @@ FILE TOOLS:
 - read_file_lines: Read specific line range (more efficient for big files).
 - write_file: Write/overwrite a file entirely.
 - patch_file: Find-and-replace within a file (safer for shared files).
+- append_file: Append content to end of a file (doesn't overwrite).
 - delete_file: Delete a file.
+- move_file: Move or rename a file.
+- copy_file: Copy a file to a new location.
 - create_directory: Create a directory (with parents).
 - list_files: List files in a directory.
 

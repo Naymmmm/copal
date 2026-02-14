@@ -72,6 +72,9 @@ Registry.register(FileSystem.patchFileTool)
 Registry.register(FileSystem.deleteFileTool)
 Registry.register(FileSystem.createDirectoryTool)
 Registry.register(FileSystem.listFilesTool)
+Registry.register(FileSystem.moveFileTool)
+Registry.register(FileSystem.copyFileTool)
+Registry.register(FileSystem.appendFileTool)
 
 -- Terminal
 Registry.register(Terminal.runCommandTool)

@@ -5,71 +5,72 @@ local Terminal = {}
 
 Terminal.runCommandTool = {
     name = "run_command",
-    description = "Run a shell command",
+    description = "Run a shell command. Put the FULL command in the 'command' field (e.g. 'mkdir test && echo done'). The 'args' field is optional.",
     parameters = {
         type = "object",
         properties = {
-            command = {type = "string", description = "Command to run"},
-            args = {type = "array", items = {type = "string"}, description = "Arguments"}
+            command = {type = "string", description = "Full command to run (e.g. 'git status', 'npm install')"},
+            args = {type = "array", items = {type = "string"}, description = "Optional extra arguments"}
         },
         required = {"command"}
     },
     execute = function(args)
         if not args.command then return "Error: command required" end
-        local cmdArgs = args.args or {}
         
-        local prog = args.command
-        local params = cmdArgs
+        -- Build the full command string (robust: handle args as string OR table OR nil)
+        local fullCmd = tostring(args.command)
+        if args.args then
+            if type(args.args) == "table" then
+                local extra = table.concat(args.args, " ")
+                if #extra > 0 then
+                    fullCmd = fullCmd .. " " .. extra
+                end
+            elseif type(args.args) == "string" then
+                fullCmd = fullCmd .. " " .. args.args
+            end
+        end
         
         local os = process.os
+        local prog, params
         local shellPref = require("../lib/Config").shell_preference
         
-        -- Determine Shell
+        -- Determine Shell and wrap command
         if os == "windows" then
             if shellPref == "cmd" then
-                 prog = "cmd"
-                 params = {"/c", table.concat(params, " ")}
+                prog = "cmd"
+                params = {"/c", fullCmd}
             elseif shellPref == "powershell" then
-                 prog = "powershell"
-                 params = {"-Command", table.concat(params, " ")}
+                prog = "powershell"
+                params = {"-Command", fullCmd}
             elseif shellPref == "pwsh" then
-                 prog = "pwsh"
-                 params = {"-Command", table.concat(params, " ")}
+                prog = "pwsh"
+                params = {"-Command", fullCmd}
             else
-                -- Auto detection
-                -- Try pwsh first
+                -- Auto detection: try pwsh first
                 local check = pcall(function() 
                     process.spawn("pwsh", {"-v"}) 
                 end)
                 
                 if check then
                     prog = "pwsh"
-                    params = {"-Command", table.concat(params, " ")}
+                    params = {"-Command", fullCmd}
                 else
-                     -- Fallback to powershell
-                     local checkPS = pcall(function() 
+                    local checkPS = pcall(function() 
                         process.spawn("powershell", {"-v"}) 
-                     end)
-                     if checkPS then
-                         prog = "powershell"
-                         params = {"-Command", table.concat(params, " ")}
-                     else
-                         -- Fallback to cmd
-                         prog = "cmd"
-                         params = {"/c", table.concat(params, " ")}
-                     end
+                    end)
+                    if checkPS then
+                        prog = "powershell"
+                        params = {"-Command", fullCmd}
+                    else
+                        prog = "cmd"
+                        params = {"/c", fullCmd}
+                    end
                 end
             end
         else
             -- Linux/Mac
-            if shellPref == "bash" then
-                prog = "bash"
-                params = {"-c", table.concat(params, " ")}
-            else
-                 -- Auto: Default to bash
-                 prog = "bash"
-                 params = {"-c", table.concat(params, " ")}
-            end
+            prog = "bash"
+            params = {"-c", fullCmd}
         end
         
         local success, result = pcall(function()

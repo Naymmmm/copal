@@ -269,4 +269,102 @@ FileSystem.listFilesTool = {
     end
 }
 
+-- ═══════════════════════════════════════
+--  move_file (rename / move)
+-- ═══════════════════════════════════════
+
+FileSystem.moveFileTool = {
+    name = "move_file",
+    description = "Move or rename a file or directory.",
+    parameters = {
+        type = "object",
+        properties = {
+            source = {type = "string", description = "Current path"},
+            destination = {type = "string", description = "New path"}
+        },
+        required = {"source", "destination"}
+    },
+    execute = function(args)
+        if not args.source or not args.destination then return "Error: source and destination required" end
+        
+        local safe1, r1 = isSafePath(args.source)
+        if not safe1 then return "Security Error: " .. tostring(r1) end
+        local safe2, r2 = isSafePath(args.destination)
+        if not safe2 then return "Security Error: " .. tostring(r2) end
+        
+        local success, content = pcall(function() return fs.readFile(args.source) end)
+        if not success then return "Error: source file not found: " .. args.source end
+        
+        local writeOk, writeErr = pcall(function() fs.writeFile(args.destination, content) end)
+        if not writeOk then return "Error writing destination: " .. tostring(writeErr) end
+        
+        local delOk, delErr = pcall(function() fs.removeFile(args.source) end)
+        if not delOk then return "Warning: copied to " .. args.destination .. " but failed to remove source: " .. tostring(delErr) end
+        
+        return "Moved " .. args.source .. " → " .. args.destination
+    end
+}
+
+-- ═══════════════════════════════════════
+--  copy_file
+-- ═══════════════════════════════════════
+
+FileSystem.copyFileTool = {
+    name = "copy_file",
+    description = "Copy a file to a new location.",
+    parameters = {
+        type = "object",
+        properties = {
+            source = {type = "string", description = "Source file path"},
+            destination = {type = "string", description = "Destination file path"}
+        },
+        required = {"source", "destination"}
+    },
+    execute = function(args)
+        if not args.source or not args.destination then return "Error: source and destination required" end
+        
+        local safe1, r1 = isSafePath(args.source)
+        if not safe1 then return "Security Error: " .. tostring(r1) end
+        local safe2, r2 = isSafePath(args.destination)
+        if not safe2 then return "Security Error: " .. tostring(r2) end
+        
+        local success, content = pcall(function() return fs.readFile(args.source) end)
+        if not success then return "Error: source file not found: " .. args.source end
+        
+        local writeOk, writeErr = pcall(function() fs.writeFile(args.destination, content) end)
+        if writeOk then return "Copied " .. args.source .. " → " .. args.destination else return "Error copying: " .. tostring(writeErr) end
+    end
+}
+
+-- ═══════════════════════════════════════
+--  append_file
+-- ═══════════════════════════════════════
+
+FileSystem.appendFileTool = {
+    name = "append_file",
+    description = "Append content to the end of a file. Creates the file if it doesn't exist. Useful for logs, adding sections, or building files incrementally without overwriting existing content.",
+    parameters = {
+        type = "object",
+        properties = {
+            path = {type = "string", description = "Path to the file"},
+            content = {type = "string", description = "Content to append"}
+        },
+        required = {"path", "content"}
+    },
+    execute = function(args)
+        if not args.path or not args.content then return "Error: path and content required" end
+        
+        local safe, reason = isSafePath(args.path)
+        if not safe then return "Security Error: " .. tostring(reason) end
+        
+        -- Read existing content (or empty if file doesn't exist)
+        local existing = ""
+        local readOk, readContent = pcall(function() return fs.readFile(args.path) end)
+        if readOk then existing = readContent end
+        
+        local writeOk, writeErr = pcall(function() fs.writeFile(args.path, existing .. args.content) end)
+        if writeOk then return "Appended to " .. args.path else return "Error appending: " .. tostring(writeErr) end
+    end
+}
+
 return FileSystem

@@ -136,7 +136,7 @@ local VERSION = (function()
         local ver = content:match('version%s*=%s*"([^"]+)"')
         if ver then return ver end
     end
-    return "?.?.?"
+    return "0.2.6?"
 end)()
 
 function TUI.drawHeader(title: string?)
@@ -284,7 +284,51 @@ Monitor.subscribe(function(event)
     elseif event.type == "tool_call" then
         wColor(THEME.agent, ICONS.tool .. " ")
         wBold("[" .. event.source .. "] ")
-        w("→ " .. event.data.tool .. RESET_ALL .. "\n")
+        w("→ " .. event.data.tool)
+        
+        -- Show contextual detail based on tool type
+        local detail = nil
+        local ok, parsed = pcall(function() 
+            return require("@lune/serde").decode("json", event.data.args or "{}") 
+        end)
+        if ok and parsed then
+            if parsed.source and parsed.destination then
+                detail = parsed.source .. " → " .. parsed.destination
+            elseif parsed.path then
+                detail = parsed.path
+            elseif parsed.command then
+                local cmd = tostring(parsed.command)
+                if parsed.args then
+                    if type(parsed.args) == "table" then
+                        cmd = cmd .. " " .. table.concat(parsed.args, " ")
+                    elseif type(parsed.args) == "string" then
+                        cmd = cmd .. " " .. parsed.args
+                    end
+                end
+                -- Truncate long commands
+                if #cmd > 60 then cmd = cmd:sub(1, 57) .. "..." end
+                detail = cmd
+            elseif parsed.target then
+                detail = parsed.target .. (parsed.reason and (" — " .. parsed.reason) or "")
+            elseif parsed.message then
+                local msg = tostring(parsed.message)
+                if #msg > 50 then msg = msg:sub(1, 47) .. "..." end
+                detail = msg
+            elseif parsed.url then
+                detail = parsed.url
+            elseif parsed.question then
+                local q = tostring(parsed.question)
+                if #q > 50 then q = q:sub(1, 47) .. "..." end
+                detail = q
+            elseif parsed.seconds then
+                detail = parsed.seconds .. "s" .. (parsed.reason and (" — " .. parsed.reason) or "")
+            end
+        end
+        
+        if detail then
+            wDim("  " .. detail)
+        end
+        w(RESET_ALL .. "\n")
     elseif event.type == "tool_result" then
         -- Suppressed for cleanliness
     elseif event.type == "completion" then
