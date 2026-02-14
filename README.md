@@ -1,16 +1,7 @@
-```
-                       _ 
-                      | |
-  ___ ___  _ __   __ _| |
- / __/ _ \| '_ \ / _` | |
-| (_| (_) | |_) | (_| | |
- \___\___/| .__/ \__,_|_|
-          | |            
-          |_| 
-                  
-```
+![Copal_Banner](./assets/copal_banner.png)
 
 # Copal
+*[copal.run](https://copal.run)*
 
 **Copal** is a powerful, modular AI Agent Swarm framework written in **Luau**, designed to run on the **Lune** runtime. It orchestrates hierarchies of AI models—from low-cost worker swarms to high-intelligence directors—to solve complex tasks autonomously.
 
