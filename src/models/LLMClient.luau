@@ -1,11 +1,17 @@
 --!strict
 local net = require("@lune/net")
 local serde = require("@lune/serde")
+local Task = require("@lune/task")
 local Config = require("../lib/Config")
 local Logger = require("../lib/Logger")
+local Monitor = require("../lib/Monitor")
 local Auth = require("../core/Auth")
 
 local LLMClient = {}
+
+-- ═══════════════════════════════════════
+--  Types
+-- ═══════════════════════════════════════
 
 type FunctionDef = {
     name: string,
@@ -25,14 +31,64 @@ type Message = {
     tool_call_id: string?
 }
 
--- Internal helper for retrying requests
-local function requestWithRetry(provider: any, body: string)
+-- ═══════════════════════════════════════
+--  Usage Tracking
+-- ═══════════════════════════════════════
+
+LLMClient._usage = {
+    totalRequests = 0,
+    totalPromptTokens = 0,
+    totalCompletionTokens = 0,
+    totalTokens = 0,
+    errors = 0,
+    retries = 0,
+    averageLatencyMs = 0,
+    _latencySum = 0,
+}
+
+function LLMClient.getUsage()
+    return {
+        requests = LLMClient._usage.totalRequests,
+        promptTokens = LLMClient._usage.totalPromptTokens,
+        completionTokens = LLMClient._usage.totalCompletionTokens,
+        totalTokens = LLMClient._usage.totalTokens,
+        errors = LLMClient._usage.errors,
+        retries = LLMClient._usage.retries,
+        avgLatencyMs = LLMClient._usage.totalRequests > 0 
+            and math.floor(LLMClient._usage._latencySum / LLMClient._usage.totalRequests)
+            or 0,
+    }
+end
+
+function LLMClient.resetUsage()
+    LLMClient._usage = {
+        totalRequests = 0,
+        totalPromptTokens = 0,
+        totalCompletionTokens = 0,
+        totalTokens = 0,
+        errors = 0,
+        retries = 0,
+        averageLatencyMs = 0,
+        _latencySum = 0,
+    }
+end
+
+-- ═══════════════════════════════════════
+--  Internal: Request with Retry
+-- ═══════════════════════════════════════
+
+local function requestWithRetry(provider: any, body: string, model: string)
     local maxRetries = 3
     local attempt = 0
     local lastError = "Unknown Error"
     
     while attempt < maxRetries do
         attempt += 1
+        if attempt > 1 then
+            LLMClient._usage.retries += 1
+        end
+        
+        local startTime = os.clock()
         
         local success, response = pcall(function()
             return net.request({
@@ -45,11 +101,25 @@ local function requestWithRetry(provider: any, body: string)
                 body = body,
             })
         end)
+        
+        local elapsed = math.floor((os.clock() - startTime) * 1000)
 
         if success and response.ok then
             local decodeSuccess, decoded = pcall(function() return serde.decode("json", response.body) end)
             if decodeSuccess then
                 if decoded.choices and #decoded.choices > 0 then
+                    -- Track usage if available
+                    if decoded.usage then
+                        LLMClient._usage.totalPromptTokens += (decoded.usage.prompt_tokens or 0)
+                        LLMClient._usage.totalCompletionTokens += (decoded.usage.completion_tokens or 0)
+                        LLMClient._usage.totalTokens += (decoded.usage.total_tokens or 0)
+                    end
+                    LLMClient._usage._latencySum += elapsed
+                    LLMClient._usage.totalRequests += 1
+                    
+                    -- Emit usage event
+                    Monitor.emit("log", "LLM", model .. " · " .. elapsed .. "ms" .. (decoded.usage and (" · " .. (decoded.usage.total_tokens or "?") .. " tok") or ""))
+                    
                     return decoded
                 end
                 lastError = "Response missing choices field"
@@ -58,25 +128,139 @@ local function requestWithRetry(provider: any, body: string)
             end
         elseif success then
             lastError = "HTTP " .. response.statusCode .. ": " .. response.statusMessage
-            Logger.warn("Attempt " .. attempt .. " failed: " .. lastError)
+            Logger.warn("Attempt " .. attempt .. "/" .. maxRetries .. " failed: " .. lastError .. " (" .. elapsed .. "ms)")
             
             if response.statusCode == 429 or response.statusCode >= 500 then
                  local waitTime = math.pow(2, attempt)
-                 Logger.info("Retrying in " .. waitTime .. "s...")
-                 require("@lune/task").wait(waitTime)
+                 Logger.info("Rate-limited or server error. Retrying in " .. waitTime .. "s...")
+                 Task.wait(waitTime)
             else
-                 break -- Fatal error
+                 LLMClient._usage.errors += 1
+                 break -- Fatal client error (400, 401, 403, etc.)
             end
         else
             lastError = "Network Request Failed: " .. tostring(response)
-            Logger.warn("Attempt " .. attempt .. " failed: " .. lastError)
-            require("@lune/task").wait(1)
+            Logger.warn("Attempt " .. attempt .. "/" .. maxRetries .. " failed: " .. lastError)
+            LLMClient._usage.errors += 1
+            Task.wait(1)
         end
     end
 
     Logger.error("LLM Request failed after " .. maxRetries .. " attempts. Last error: " .. lastError)
+    LLMClient._usage.errors += 1
     return nil
 end
+
+-- ═══════════════════════════════════════
+--  Fallback: Parse Text Tool Calls
+-- ═══════════════════════════════════════
+
+local function parseTextBasedToolCalls(content: string): ({any}?, string?)
+    local toolCalls = {}
+    local cleanContent = content
+    
+    -- Pattern 1: <|tool_call_start|>[func(args)]<|tool_call_end|>
+    for match in content:gmatch("<|tool_call_start|>(.-)<|tool_call_end|>") do
+        local inner = match:match("^%[(.*)%]$")
+        if inner then
+            local nameOffset = inner:find("%(")
+            if nameOffset then
+                local name = inner:sub(1, nameOffset - 1)
+                local argsRaw = inner:sub(nameOffset + 1, -2)
+                
+                local jsonParts = {}
+                for k, v in argsRaw:gmatch("(%w+)='(.-)'") do
+                    table.insert(jsonParts, '"' .. k .. '": "' .. v .. '"')
+                end
+                for k, v in argsRaw:gmatch('(%w+)="(.-)"') do
+                    table.insert(jsonParts, '"' .. k .. '": "' .. v .. '"')
+                end
+                
+                local jsonStr = "{" .. table.concat(jsonParts, ", ") .. "}"
+                local callId = "call_" .. math.random(10000, 99999)
+                
+                table.insert(toolCalls, {
+                    id = callId,
+                    type = "function",
+                    ["function"] = {
+                        name = name,
+                        arguments = jsonStr
+                    }
+                })
+                
+                cleanContent = cleanContent:gsub("<|tool_call_start|>" .. match:gsub("([^%w])", "%%%1") .. "<|tool_call_end|>", "")
+            end
+        end
+    end
+
+    if #toolCalls > 0 then
+        Logger.debug("Parsed " .. #toolCalls .. " text-based tool calls.")
+        return toolCalls, cleanContent
+    end
+    
+    -- Pattern 2: JSON block {"name": ..., "arguments": ...}
+    local jsonBlock = content:match("```json%s*({.*})%s*```") or content:match("({.*})")
+    if jsonBlock then
+        local ok, parsed = pcall(function() return serde.decode("json", jsonBlock) end)
+        if ok and parsed.name and parsed.arguments then
+            local argsStr = ""
+            if type(parsed.arguments) == "table" then
+                argsStr = serde.encode("json", parsed.arguments)
+            else
+                argsStr = tostring(parsed.arguments)
+            end
+            
+            table.insert(toolCalls, {
+                id = "call_json_" .. math.random(10000, 99999),
+                type = "function",
+                ["function"] = {
+                    name = parsed.name,
+                    arguments = argsStr
+                }
+            })
+            Logger.debug("Parsed JSON-based tool call: " .. parsed.name)
+            return toolCalls, cleanContent
+        end
+    end
+    
+    -- Pattern 3: Code block with write_file(...) or run_command(...)
+    if content:find("```") then
+        local filename, fileContent = content:match("write_file%(['\"](.-)['\"'],%s*['\"](.-)['\"']%)")
+        if filename and fileContent then
+            table.insert(toolCalls, {
+                id = "call_fb_" .. math.random(10000, 99999),
+                type = "function",
+                ["function"] = {
+                    name = "write_file",
+                    arguments = serde.encode("json", {path = filename, content = fileContent})
+                }
+            })
+        end
+        
+        local cmd = content:match("run_command%(['\"](.-)['\"']%)")
+        if cmd then
+            table.insert(toolCalls, {
+                id = "call_fb_" .. math.random(10000, 99999),
+                type = "function",
+                ["function"] = {
+                    name = "run_command",
+                    arguments = serde.encode("json", {command = cmd})
+                }
+            })
+        end
+        
+        if #toolCalls > 0 then
+            Logger.debug("Parsed " .. #toolCalls .. " code-block tool calls.")
+            return toolCalls, cleanContent
+        end
+    end
+
+    return nil, content
+end
+
+-- ═══════════════════════════════════════
+--  Public: LLM Completion
+-- ═══════════════════════════════════════
 
 function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?, toolChoice: any?): (string?, {any}?)
     local provider = Config.getActive()
@@ -95,9 +279,7 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
     }
 
     local body = serde.encode("json", payload)
-
-    -- Call internal request with retries
-    local data = requestWithRetry(provider, body)
+    local data = requestWithRetry(provider, body, model)
     if not data then return nil, nil end
 
     if data.choices and #data.choices > 0 then
@@ -105,117 +287,14 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
         local content = message.content
         local toolCalls = message.tool_calls
         
-        -- Fallback: If no native tool calls, check for text-based patterns
-        -- Pattern: <|tool_call_start|>[func(args)]<|tool_call_end|>
+        -- Fallback: Parse text-based tool calls if no native ones
         if not toolCalls and content and content:find("<|tool_call_start|>") then
-            toolCalls = {}
-            local cleanContent = content
-            
-            for match in content:gmatch("<%|tool_call_start%|>(.-)<%|tool_call_end%|>") do
-                local inner = match:match("^%[(.*)%]$")
-                if inner then
-                    local nameOffset = inner:find("%(")
-                    if nameOffset then
-                        local name = inner:sub(1, nameOffset - 1)
-                        local argsRaw = inner:sub(nameOffset + 1, -2)
-                        
-                        local jsonParts = {}
-                        for k, v in argsRaw:gmatch("(%w+)='(.-)'") do
-                            table.insert(jsonParts, '"' .. k .. '": "' .. v .. '"')
-                        end
-                        for k, v in argsRaw:gmatch('(%w+)="(.-)"') do
-                            table.insert(jsonParts, '"' .. k .. '": "' .. v .. '"')
-                        end
-                        
-                        local jsonStr = "{" .. table.concat(jsonParts, ", ") .. "}"
-                        local callId = "call_" .. math.random(10000, 99999)
-                        
-                        table.insert(toolCalls, {
-                            id = callId,
-                            type = "function",
-                            ["function"] = {
-                                name = name,
-                                arguments = jsonStr
-                            }
-                        })
-                        
-                        cleanContent = cleanContent:gsub("<%|tool_call_start%|>" .. match:gsub("([^%w])", "%%%1") .. "<%|tool_call_end%|>", "")
-                    end
-                end
-            end
-            
-            if #toolCalls > 0 then
-                Logger.info("Parsed " .. #toolCalls .. " text-based tool calls.")
-                content = cleanContent
-            else
-                toolCalls = nil 
-            end
-
-            -- If still no tool calls, try to parse JSON blocks
-            if not toolCalls and content and (content:find("{") and content:find("}")) then
-                 local jsonBlock = content:match("({.*})")
-                 if not jsonBlock then
-                     jsonBlock = content:match("```json%s*({.*})%s*```")
-                 end
-                 
-                 if jsonBlock then
-                     local success, parsed = pcall(function() return serde.decode("json", jsonBlock) end)
-                     if success and parsed.name and parsed.arguments then
-                         if not toolCalls then toolCalls = {} end
-                         
-                         local argsStr = ""
-                         if type(parsed.arguments) == "table" then
-                             argsStr = serde.encode("json", parsed.arguments)
-                         else
-                             argsStr = tostring(parsed.arguments)
-                         end
-                         
-                         table.insert(toolCalls, {
-                            id = "call_fallback_json_" .. math.random(10000, 99999),
-                            type = "function",
-                            ["function"] = {
-                                name = parsed.name,
-                                arguments = argsStr
-                            }
-                        })
-                        Logger.info("Parsed JSON-based tool call.")
-                     end
-                 end
-            end
-            
-            -- If still no blocks, parse simple code blocks
-            if not toolCalls and content and (content:find("```python") or content:find("```lua") or content:find("```")) then
-                local filename, fileContent = content:match("write_file%(['\"](.-)['\"],%s*['\"](.-)['\"]%)")
-                if filename and fileContent then
-                     if not toolCalls then toolCalls = {} end
-                     local jsonStr = "{\"path\": \"" .. filename .. "\", \"content\": \"" .. fileContent .. "\"}"
-                     table.insert(toolCalls, {
-                        id = "call_fallback_" .. math.random(10000, 99999),
-                        type = "function",
-                        ["function"] = {
-                            name = "write_file",
-                            arguments = jsonStr
-                        }
-                    })
-                    Logger.info("Parsed write_file from code block.")
-                end
-                
-                local cmd = content:match("run_command%(['\"](.-)['\"]%)")
-                if cmd then
-                     if not toolCalls then toolCalls = {} end
-                     local jsonStr = "{\"command\": \"" .. cmd .. "\"}"
-                     table.insert(toolCalls, {
-                        id = "call_fallback_" .. math.random(10000, 99999),
-                        type = "function",
-                        ["function"] = {
-                            name = "run_command",
-                            arguments = jsonStr
-                        }
-                    })
-                    Logger.info("Parsed run_command from code block.")
-                end
-            end
-
+            toolCalls, content = parseTextBasedToolCalls(content)
+        end
+        
+        -- Secondary fallback if still nothing
+        if not toolCalls and content and (content:find("{") and content:find("}")) then
+            toolCalls, content = parseTextBasedToolCalls(content)
         end
 
         return content, toolCalls

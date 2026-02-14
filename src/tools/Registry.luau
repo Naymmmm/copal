@@ -44,8 +44,6 @@ function Registry.validate(name: string, args: any): (boolean, string?)
     if tool.parameters and tool.parameters.required then
         for _, reqField in ipairs(tool.parameters.required) do
             if args[reqField] == nil then
-                -- Check for aliases if standard field missing (legacy support)
-                -- This is specific to our implementation where we might have loose schemas
                 return false, "Missing required argument: " .. reqField
             end
         end
@@ -54,13 +52,49 @@ function Registry.validate(name: string, args: any): (boolean, string?)
     return true
 end
 
--- Initialize default tools
+function Registry.getToolCount(): number
+    local count = 0
+    for _ in pairs(tools) do
+        count += 1
+    end
+    return count
+end
+
+-- ═══════════════════════════════════════
+--  Register All Tools
+-- ═══════════════════════════════════════
+
+-- File System
 Registry.register(FileSystem.readFileTool)
+Registry.register(FileSystem.readFileLinesTool)
 Registry.register(FileSystem.writeFileTool)
+Registry.register(FileSystem.patchFileTool)
+Registry.register(FileSystem.deleteFileTool)
+Registry.register(FileSystem.createDirectoryTool)
 Registry.register(FileSystem.listFilesTool)
+
+-- Terminal
 Registry.register(Terminal.runCommandTool)
+
+-- Search
 Registry.register(require("./Ripgrep").searchTool)
+
+-- Communication
 Registry.register(Communication.broadcastTool)
+Registry.register(Communication.whisperTool)
+Registry.register(Communication.requestHelpTool)
+Registry.register(Communication.reportProgressTool)
+
+-- Interaction
 Registry.register(require("./Interaction").askUserTool)
+
+-- Reasoning
+Registry.register(require("./Thinking").thinkTool)
+
+-- Web
+Registry.register(require("./WebFetch").fetchTool)
+
+-- Delegation
+Registry.register(require("./Delegation").delegateTaskTool)
 
 return Registry

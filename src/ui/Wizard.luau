@@ -1,5 +1,6 @@
 --!strict
 local stdio = require("@lune/stdio")
+local Task = require("@lune/task")
 local TUI = require("./TUI")
 local Auth = require("../core/Auth")
 local Config = require("../lib/Config")
@@ -23,7 +24,6 @@ local function selectModel(role: string, default: string, apiKey: string): strin
         "llama-3.1-70b", "o1-preview", "liquid/lfm", "minimax"
     }
 
-    -- Sort models: Popular ones first, then alphabetical
     if not fetchFailed and models then
         table.sort(models, function(a, b)
             local aPop = false
@@ -43,12 +43,14 @@ local function selectModel(role: string, default: string, apiKey: string): strin
     
     while true do
         TUI.drawHeader("Model Selection: " .. role)
-        stdio.write("Role: " .. role .. "\n")
-        stdio.write("Default: " .. default .. "\n")
+        
+        TUI.section("Configuration")
+        TUI.sectionItem("▸", "cyan", "Role: " .. role)
+        TUI.sectionItem("▸", "cyan", "Default: " .. stdio.style("dim") .. default .. stdio.style("reset"))
         if #currentFilter > 0 then
-            stdio.write("Filter: " .. stdio.color("yellow") .. currentFilter .. stdio.color("reset") .. "\n")
+            TUI.sectionItem("▸", "yellow", "Filter: " .. currentFilter)
         end
-        stdio.write("----------------------------------------\n")
+        TUI.sectionEnd()
         
         local filteredModels = {}
         if not fetchFailed then
@@ -58,43 +60,45 @@ local function selectModel(role: string, default: string, apiKey: string): strin
                 end
             end
             
-            -- Show results (paged or limited)
+            TUI.section("Available Models")
             local limit = 10
             for i = 1, math.min(#filteredModels, limit) do
-                stdio.write(string.format("%d. %s\n", i, filteredModels[i]))
+                TUI.sectionItem(tostring(i), "green", filteredModels[i])
             end
             
             if #filteredModels == 0 then
-                stdio.write(stdio.color("red") .. "No models match your filter.\n" .. stdio.color("reset"))
+                TUI.sectionItem("✘", "red", "No models match your filter.")
             elseif #filteredModels > limit then
-                stdio.write(string.format("... (%d more matches)\n", #filteredModels - limit))
+                TUI.sectionItem("…", "white", "(" .. (#filteredModels - limit) .. " more matches)")
             end
+            TUI.sectionEnd()
             
-            stdio.write("\nOptions:\n")
-            stdio.write("- Type a number to select.\n")
-            stdio.write("- Type text to search/filter.\n")
-            stdio.write("- Press Enter to use Default.\n")
+            TUI.blank()
+            TUI.section("Options")
+            TUI.sectionItem("1-9", "cyan", "Select by number")
+            TUI.sectionItem("abc", "cyan", "Type to search/filter")
+            TUI.sectionItem("↵", "cyan", "Press Enter for default")
             if #currentFilter > 0 then
-                stdio.write("- Type 'clear' to reset filter.\n")
+                TUI.sectionItem("×", "yellow", "Type 'clear' to reset filter")
             end
+            TUI.sectionEnd()
         else
-            stdio.write("Enter the model ID manually.\n")
+            TUI.section("Manual Entry")
+            TUI.sectionItem("▸", "yellow", "Enter the model ID manually")
+            TUI.sectionEnd()
         end
         
-        local input = TUI.prompt(">")
+        local input = TUI.prompt("Model")
         
-        -- Empty input -> Default
         if input == "" then
             return default
         end
         
-        -- Clear filter
         if input:lower() == "clear" then
             currentFilter = ""
             continue
         end
         
-        -- Check if number selection
         local num = tonumber(input)
         if num and not fetchFailed then
             if filteredModels[num] then
@@ -102,13 +106,10 @@ local function selectModel(role: string, default: string, apiKey: string): strin
             end
         end
         
-        -- If manual entry (fetch failed) or just typing a model name explicitly
         if fetchFailed then
             return input
         end
         
-        -- Otherwise treat as filter
-        -- If the user typed something that isn't a number, update filter
         if not num then
             currentFilter = input
         end
@@ -117,21 +118,26 @@ end
 
 function Wizard.settingsMenu()
     while true do
-        TUI.drawHeader("Configuration Settings")
-        stdio.write("Current Provider: " .. Config.active_provider .. "\n")
-        stdio.write("----------------------------------------\n")
-        stdio.write("1. Change Active Provider\n")
-        stdio.write("2. Update API Key (Current Provider)\n")
-        stdio.write("3. Update Model Selection\n")
-        stdio.write("4. Change Security Level (" .. (Config.security_level or "restricted") .. ")\n")
-        stdio.write("5. Back to Main Menu\n")
+        TUI.drawHeader("Settings")
         
-        local selection = TUI.prompt("Select Option")
+        TUI.section("Current Configuration")
+        TUI.sectionItem("▸", "cyan", "Provider: " .. stdio.style("bold") .. Config.active_provider .. stdio.style("reset"))
+        TUI.sectionItem("▸", "cyan", "Security: " .. stdio.style("bold") .. (Config.security_level or "restricted") .. stdio.style("reset"))
+        TUI.sectionEnd()
+        TUI.blank()
         
-        if selection == "1" then
-            Wizard.start(true) -- Re-run full setup for simplicity regarding provider switch
+        local selection = TUI.menu({
+            {label = "Change Provider",     value = "provider",  description = "Switch AI provider"},
+            {label = "Update API Key",      value = "apikey",    description = "For " .. Config.active_provider},
+            {label = "Model Selection",     value = "models",    description = "Configure per-tier models"},
+            {label = "Security Level",      value = "security",  description = (Config.security_level or "restricted")},
+            {label = "Back",                value = "back",      description = "Return to main menu"},
+        })
+        
+        if selection == "provider" then
+            Wizard.start(true)
             return
-        elseif selection == "2" then
+        elseif selection == "apikey" then
             local provider = Config.getActive()
             local newKey = TUI.promptSecret("Enter new API Key for " .. Config.active_provider)
             if #newKey > 0 then
@@ -145,7 +151,7 @@ function Wizard.settingsMenu()
                     Task.wait(1)
                 end
             end
-        elseif selection == "3" then
+        elseif selection == "models" then
             local provider = Config.getActive()
             if not provider.key or #provider.key == 0 then
                 Logger.error("Set API Key first.")
@@ -159,21 +165,22 @@ function Wizard.settingsMenu()
             Config.save()
             Logger.success("Models updated.")
             Task.wait(1)
-        elseif selection == "4" then
-            TUI.drawHeader("Select Security Level")
-            stdio.write("1. Restricted (Default) - Agents confined to CWD, commands require approval.\n")
-            stdio.write("2. Full Access - Agents can roam file system, commands run automatically.\n")
+        elseif selection == "security" then
+            TUI.drawHeader("Security Level")
+            TUI.blank()
             
-            local secSel = TUI.prompt("Select Mode (1-2)")
-            if secSel == "1" then
-                Config.security_level = "restricted"
-            elseif secSel == "2" then
-                Config.security_level = "full_access"
+            local secSel = TUI.menu({
+                {label = "Restricted", value = "restricted", description = "Agents confined to CWD, commands need approval"},
+                {label = "Full Access", value = "full_access", description = "Agents can roam freely, commands auto-run"},
+            })
+            
+            if secSel then
+                Config.security_level = secSel
+                Config.save()
+                Logger.success("Security level: " .. secSel)
+                Task.wait(1)
             end
-            Config.save()
-            Logger.success("Security level updated to: " .. Config.security_level)
-            Task.wait(1)
-        elseif selection == "5" then
+        elseif selection == "back" then
             return
         end
     end
@@ -181,36 +188,31 @@ end
     
 function Wizard.start(skipWelcome: boolean?)
     if not skipWelcome then
-        TUI.drawHeader("Copal Setup Wizard")
-        stdio.write("Welcome to Copal! Let's get you set up.\n\n")
+        TUI.drawHeader("Setup Wizard")
+        TUI.drawBox("Welcome", "Let's get Copal configured.\nThis will set up your AI provider, API key, and models.")
     end
 
     -- 1. Provider Selection
     TUI.drawHeader("Select AI Provider")
-    local providers = {"opencode", "openrouter", "openai", "custom"}
-    for i, p in ipairs(providers) do
-        stdio.write(string.format("%d. %s\n", i, p))
-    end
+    TUI.blank()
     
-    local selectedProvider = "opencode"
-    while true do
-        local selection = TUI.prompt("Enter number (Default: 1)")
-        if selection == "" then
-            break
-        end
-        local num = tonumber(selection)
-        if num and providers[num] then
-            selectedProvider = providers[num]
-            break
-        end
-        Logger.warn("Invalid selection.")
+    local providers = {"opencode", "openrouter", "openai", "custom"}
+    local selectedProvider = TUI.menu({
+        {label = "OpenCode",    value = "opencode",   description = "Default provider"},
+        {label = "OpenRouter",  value = "openrouter",  description = "Multi-model gateway"},
+        {label = "OpenAI",      value = "openai",      description = "GPT models"},
+        {label = "Custom",      value = "custom",      description = "Self-hosted / other"},
+    })
+    
+    if not selectedProvider then
+        selectedProvider = "opencode"
     end
 
     Auth.setProvider(selectedProvider)
     local providerConfig = Config.providers[selectedProvider]
 
     if selectedProvider == "custom" then
-        local url = TUI.prompt("Enter Base URL (Default: " .. providerConfig.url .. ")")
+        local url = TUI.prompt("Base URL (Default: " .. providerConfig.url .. ")")
         if #url > 0 then
             providerConfig.url = url
             Config.providers.custom.url = url
@@ -222,7 +224,10 @@ function Wizard.start(skipWelcome: boolean?)
     local skipKeyEntry = false
     
     if providerConfig.key and #providerConfig.key > 0 then
-        stdio.write("Existing API Key found.\n")
+        TUI.section("Existing Key Found")
+        TUI.sectionItem("✔", "green", "An API key is already configured.")
+        TUI.sectionEnd()
+        
         local change = TUI.prompt("Update API Key? (y/N)")
         if change:lower() ~= "y" then
             apiKey = providerConfig.key
@@ -238,13 +243,16 @@ function Wizard.start(skipWelcome: boolean?)
                 continue
             end
             
-            stdio.write("Validating key...\n")
-            if Auth.validateKey(apiKey) then
+            TUI.startSpinner("Validating key...")
+            local valid = Auth.validateKey(apiKey)
+            TUI.stopSpinner()
+            
+            if valid then
                 Logger.success("API Key valid!")
                 providerConfig.key = apiKey
                 break
             else
-                Logger.error("Invalid API Key or connection failed. Please try again.")
+                Logger.error("Invalid API Key or connection failed.")
                 local retry = TUI.prompt("Retry? (y/n)")
                 if retry:lower() ~= "y" then
                     providerConfig.key = apiKey 
@@ -254,21 +262,25 @@ function Wizard.start(skipWelcome: boolean?)
         end
     end
 
-    -- 3. Fetch Models (Calls static helper)
+    -- 3. Model Selection
     providerConfig.models.low = selectModel("Swarm Agents (Low Cost)", providerConfig.models.low or "gpt-4o-mini", apiKey)
     providerConfig.models.medium = selectModel("Director (Coordination)", providerConfig.models.medium or "gpt-4o", apiKey)
     providerConfig.models.high = selectModel("Company CEO (High Intelligence)", providerConfig.models.high or "o1", apiKey)
 
-    -- 4. Save Config
+    -- 4. Review & Save
     TUI.drawHeader("Review Configuration")
-    stdio.write("Provider: " .. selectedProvider .. "\n")
+    
     local censoredKey = "sk-..." .. string.sub(apiKey, -4)
     if #apiKey < 10 then censoredKey = "(hidden)" end
     
-    stdio.write("API Key: " .. censoredKey .. "\n")
-    stdio.write("Low Model: " .. providerConfig.models.low .. "\n")
-    stdio.write("Medium Model: " .. providerConfig.models.medium .. "\n")
-    stdio.write("High Model: " .. providerConfig.models.high .. "\n")
+    TUI.section("Summary")
+    TUI.sectionItem("▸", "cyan",   "Provider:  " .. selectedProvider)
+    TUI.sectionItem("▸", "yellow", "API Key:   " .. censoredKey)
+    TUI.sectionItem("▸", "green",  "Low Model: " .. providerConfig.models.low)
+    TUI.sectionItem("▸", "green",  "Mid Model: " .. providerConfig.models.medium)
+    TUI.sectionItem("▸", "green",  "Top Model: " .. providerConfig.models.high)
+    TUI.sectionEnd()
+    TUI.blank()
     
     local confirm = TUI.prompt("Save configuration? (y/n)")
     if confirm:lower() == "y" then

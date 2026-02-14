@@ -10,7 +10,6 @@ local Director = require("./core/Director")
 local Company = require("./core/Company")
 local Config = require("./lib/Config")
 
--- Protocol require removed as file does not exist
 local Wizard = require("./ui/Wizard")
 
 local function main()
@@ -26,7 +25,6 @@ local function main()
     Config.load()
     if forceSetup or not Config.exists() then
         Wizard.start()
-        -- Reload config after wizard
         Config.load()
     end
 
@@ -46,32 +44,28 @@ local function main()
         elseif arg == "--task" or arg == "--goal" or arg == "--mission" and args[i+1] then
             inputTask = args[i+1]
         elseif arg == "--setup" then
-            -- handled earlier but good for completeness
+            -- handled earlier
         end
     end
 
-    -- 3. Mode Selection
+    -- 3. Interactive Mode Selection
     if mode == "interactive" then
         while true do
             TUI.drawHeader("Interactive Selection")
-            stdio.write("1. Swarm Mode (Single Task)\n")
-            stdio.write("2. Director Mode (Plan & Execute)\n")
-            stdio.write("3. Company Mode (CEO & Departments)\n")
-            stdio.write("4. Settings (Providers & Models)\n")
+            TUI.blank()
             
-            local selection = TUI.prompt("Select Mode (1-4)")
-            if selection == "1" then 
-                mode = "swarm"
+            local selection = TUI.menu({
+                {label = "Swarm Mode",    value = "swarm",    description = "Single task → multiple agents"},
+                {label = "Director Mode", value = "director", description = "Plan & Execute with review loop"},
+                {label = "Company Mode",  value = "company",  description = "CEO → Directors → Agents"},
+                {label = "Settings",      value = "settings", description = "Providers, models, security"},
+            })
+            
+            if selection == "swarm" or selection == "director" or selection == "company" then
+                mode = selection
                 break
-            elseif selection == "2" then 
-                mode = "director"
-                break
-            elseif selection == "3" then 
-                mode = "company"
-                break
-            elseif selection == "4" then
+            elseif selection == "settings" then
                 Wizard.settingsMenu()
-                -- Loop back to selection after settings
             else
                 Logger.error("Invalid selection.")
                 Task.wait(1)
@@ -84,12 +78,9 @@ local function main()
     -- 4. Execution
     if mode == "swarm" then
         local taskDesc = inputTask or TUI.prompt("Enter task for Swarm")
-        TUI.drawBox("Swarm Mode Activated", "Running agents directly without Director supervision.\nUse Director Mode for complex planning.")
+        TUI.drawBox("Swarm Mode", "Running agents directly without Director supervision.\nUse Director Mode for complex planning.")
         
         local swarm = Swarm.new(5)
-        -- In simple swarm mode, we treat the task as a single item or split it simply?
-        -- The Swarm class expects a list of subtasks.
-        -- Let's just wrap it in a list for now or split by newlines.
         Logger.info("Dispatching swarm...")
         swarm:execute({taskDesc})
 

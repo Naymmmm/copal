@@ -47,31 +47,73 @@ function Swarm:execute(subTasks: {string})
     
     -- Control Flags
     local isPaused = false
+    local approvalLock = false
     
-    -- Start Input Loop
-    -- Note: startInputLoop spawns a thread. We need to be careful not to spawn multiple if Swarm is reused.
-    -- Ideally TUI handles this singleton nature.
-    TUI.startInputLoop(function(line)
-        local cmd = line:match("^(%S+)")
-        local args = line:match("^%S+%s+(.*)")
-        
-        if cmd == "/pause" then
+    local function acquireApprovalLock()
+        while approvalLock do
+            Task.wait(0.2)
+        end
+        approvalLock = true
+        isPaused = true
+        Task.wait(0.3)
+    end
+    
+    local function releaseApprovalLock()
+        approvalLock = false
+        isPaused = false
+    end
+    
+    -- Register swarm-specific slash commands
+    TUI.registerCommand({
+        name = "pause",
+        description = "Pause all agents",
+        usage = "pause",
+        handler = function()
             isPaused = true
             Monitor.log("System", "Swarm PAUSED. Type /resume to continue.")
-        elseif cmd == "/resume" then
+        end,
+    })
+    
+    TUI.registerCommand({
+        name = "resume",
+        description = "Resume paused agents",
+        usage = "resume",
+        handler = function()
             isPaused = false
             Monitor.log("System", "Swarm RESUMED.")
-        elseif cmd == "/status" then
+        end,
+    })
+    
+    TUI.registerCommand({
+        name = "status",
+        description = "Show agent dashboard",
+        usage = "status",
+        handler = function()
             TUI.drawDashboard(swarmState)
-        elseif cmd == "/info" and args then
-            table.insert(swarmBlackboard, {
-                source = "User",
-                content = args
-            })
-            Monitor.log("System", "User injected info: " .. args)
-        elseif cmd == "/help" then
-             Monitor.log("System", "Commands: /pause, /resume, /info <msg>, /status")
-        end
+        end,
+    })
+    
+    TUI.registerCommand({
+        name = "info",
+        description = "Inject info into agent context",
+        usage = "info <message>",
+        handler = function(args: string?)
+            if args and #args > 0 then
+                table.insert(swarmBlackboard, {
+                    source = "User",
+                    content = args
+                })
+                Monitor.log("System", "Injected: " .. args)
+            else
+                Monitor.log("System", "Usage: /info <message>")
+            end
+        end,
+    })
+    
+    -- Start the input loop (dispatches slash commands automatically)
+    TUI.startInputLoop(function(line)
+        -- Non-command input during swarm execution is ignored
+        -- (or could be used to feed info to agents)
     end)
     
     -- Get tools for the agents
@@ -81,19 +123,36 @@ function Swarm:execute(subTasks: {string})
         local agentId = "Agent " .. i
         
         Task.spawn(function()
-            -- Update Status
             swarmState.agents[i].status = "Starting"
             Monitor.log(agentId, "Starting task: " .. subTask)
             
             local systemPrompt = "You are " .. agentId .. ", a specialized worker agent part of a Swarm of " .. self._size .. " agents.\n" ..
 [[You have access to the following tools:
-- read_file: Read a file from the system.
-- write_file: Write text to a file.
+
+FILE TOOLS:
+- read_file: Read entire file contents.
+- read_file_lines: Read specific line range (more efficient for big files).
+- write_file: Write/overwrite a file entirely.
+- patch_file: Find-and-replace within a file (safer for shared files).
+- delete_file: Delete a file.
+- create_directory: Create a directory (with parents).
 - list_files: List files in a directory.
+
+TERMINAL & SEARCH:
 - run_command: Execute a shell command.
-- ripgrep: Search for patterns in files.
-- broadcast: Send a message to all other agents (use this to ask for help or share results).
-- ask_user: Ask the user a question if you need more information.
+- ripgrep: Fast pattern search across files.
+- web_fetch: HTTP GET a URL (docs, references, raw files).
+
+COMMUNICATION:
+- broadcast: Send a message to ALL agents.
+- whisper: Private message to ONE agent (e.g. 'Agent 2').
+- request_help: Signal you're stuck and need collaboration.
+- report_progress: Share status and files you've touched.
+- ask_user: Ask the user a question.
+
+REASONING & DELEGATION:
+- think: Internal scratchpad — plan before acting (NO side effects).
+- delegate_task: Spawn a subtask for another agent to handle.
 
 CONTEXT:
 Current Working Directory: ]] .. cwd .. [[
@@ -101,10 +160,11 @@ Security Level: ]] .. securityLevel .. [[
 
 RULES:
 1. You are ]] .. agentId .. [[.
-2. You executed in a secure local environment. File operations are permitted.
-3. Use 'broadcast' to collaborate. If you are stuck, ask other agents.
-4. Be concise.
-5. DO NOT write code blocks. Call the tools directly using the tool usage format.
+2. ALWAYS use 'think' first to plan your approach before taking action.
+3. Use 'patch_file' instead of 'write_file' when editing existing files (avoids clobbering other agents' changes).
+4. Use 'report_progress' after completing significant work to share what files you touched.
+5. If stuck, use 'request_help'. If a subtask would be better done separately, use 'delegate_task'.
+6. Be concise. Call tools directly — do NOT write code blocks.
 ]]
 
             if securityLevel == "restricted" then
@@ -125,22 +185,42 @@ RULES:
             
             while iterations < maxIterations do
                 -- PAUSE CHECK
-                while isPaused do
-                    Task.wait(1)
+                while isPaused or approvalLock do
+                    swarmState.agents[i].status = "Paused"
+                    Task.wait(0.5)
                 end
                 
                 iterations += 1
                 swarmState.agents[i].iterations = iterations
                 swarmState.agents[i].status = "Checking Mail"
                 
-                -- 1. Sync Blackboard (Read new messages)
+                -- Sync Blackboard (typed message routing)
                 if #swarmBlackboard > lastReadBroadcastIndex then
                     for j = lastReadBroadcastIndex + 1, #swarmBlackboard do
                         local msg = swarmBlackboard[j]
-                        if msg.source ~= agentId then -- Don't read my own echoes
+                        if msg.source ~= agentId then
+                            -- Skip whispers/delegations not addressed to this agent
+                            if msg.type == "whisper" and msg.target ~= agentId then
+                                continue
+                            end
+                            if msg.type == "delegation" and msg.target and msg.target ~= agentId then
+                                continue
+                            end
+                            
+                            local prefix = "[Broadcast from " .. msg.source .. "]"
+                            if msg.type == "whisper" then
+                                prefix = "[Whisper from " .. msg.source .. "]"
+                            elseif msg.type == "help" then
+                                prefix = "[Help Request from " .. msg.source .. "]"
+                            elseif msg.type == "progress" then
+                                prefix = "[Progress from " .. msg.source .. "]"
+                            elseif msg.type == "delegation" then
+                                prefix = "[Delegated Task from " .. msg.source .. "]"
+                            end
+                            
                             table.insert(messages, {
                                 role = "user",
-                                content = "[Broadcast from " .. msg.source .. "]: " .. msg.content
+                                content = prefix .. ": " .. msg.content
                             })
                         end
                     end
@@ -154,7 +234,7 @@ RULES:
                 
                 if not output and not toolCalls then
                     swarmState.agents[i].status = "Error (Network)"
-                    Monitor.log(agentId, "Error: Failed to get response from LLM (Network/Provider Error).")
+                    Monitor.log(agentId, "Error: LLM request failed.")
                     finalOutput = "Error: LLM Request Failed."
                     break
                 end
@@ -183,31 +263,43 @@ RULES:
                         if toolDef then
                             local success, args = pcall(function() return serde.decode("json", toolArgsStr) end)
                             if success then
-                                -- VALIDATION STEP
                                 local valid, invalidReason = Registry.validate(toolName, args)
                                 
                                 if valid then
-                                    -- SECURITY & APPROVAL CHECK
                                     local approved = true
                                     
+                                    -- SECURITY: run_command approval in restricted mode
                                     if securityLevel == "restricted" and toolName == "run_command" then
                                         swarmState.agents[i].status = "Waiting Approval"
-                                        Monitor.log(agentId, "Requesting approval for command: " .. (args.command or "unknown"))
-                                        -- We need to ask TUI. Since this is async/spawned, TUI access might overlap.
-                                        -- TUI.confirm blocks stdin. 
-                                        -- WARNING: If multiple agents ask at once, this is messy.
-                                        -- For the "tenfold TUI", we'd need a request queue.
-                                        -- For now, let's just block. The user is single-threaded.
-                                        -- We should output clearly who is asking.
+                                        acquireApprovalLock()
                                         
-                                        local question = "\n[SECURITY WARNING] " .. agentId .. " wants to run: " .. (args.command or "") .. " " .. table.concat(args.args or {}, " ") .. "\nAllow?"
-                                        approved = TUI.confirm(question)
+                                        local cmdStr = (args.command or "unknown")
+                                        if args.args and #args.args > 0 then
+                                            cmdStr = cmdStr .. " " .. table.concat(args.args, " ")
+                                        end
+                                        
+                                        approved = TUI.confirm(agentId .. " wants to run:\n  > " .. cmdStr)
                                         
                                         if not approved then
-                                            Monitor.log(agentId, "Command denied by user.")
-                                            toolResult = "Error: User denied permission to run this command."
+                                            Monitor.log(agentId, "Command denied.")
+                                            toolResult = "Error: User denied permission."
                                         end
+                                        
+                                        releaseApprovalLock()
                                         swarmState.agents[i].status = "Resuming"
+                                    end
+                                    
+                                    -- ask_user locks stdin too
+                                    if toolName == "ask_user" then
+                                        swarmState.agents[i].status = "Asking User"
+                                        acquireApprovalLock()
+                                        
+                                        local answer = TUI.askUser(agentId .. " asks:\n  " .. (args.question or ""))
+                                        toolResult = answer
+                                        
+                                        releaseApprovalLock()
+                                        swarmState.agents[i].status = "Resuming"
+                                        approved = false
                                     end
                                     
                                     if approved then
@@ -215,13 +307,40 @@ RULES:
                                         Monitor.log(agentId, "Executing " .. toolName)
                                         toolResult = toolDef.execute(args)
                                         
-                                        -- Special handling for broadcast
+                                        -- Route communication & delegation to blackboard
                                         if toolName == "broadcast" and args.message then
                                             table.insert(swarmBlackboard, {
+                                                type = "broadcast",
                                                 source = agentId,
+                                                content = args.message,
+                                                priority = args.priority or "info"
+                                            })
+                                        elseif toolName == "whisper" and args.message then
+                                            table.insert(swarmBlackboard, {
+                                                type = "whisper",
+                                                source = agentId,
+                                                target = args.target,
                                                 content = args.message
                                             })
-                                            Monitor.emit("log", agentId, "Broadcasted: " .. args.message)
+                                        elseif toolName == "request_help" and args.topic then
+                                            table.insert(swarmBlackboard, {
+                                                type = "help",
+                                                source = agentId,
+                                                content = "HELP [" .. (args.expertise_needed or "any") .. "]: " .. args.topic .. " — " .. args.details
+                                            })
+                                        elseif toolName == "report_progress" and args.summary then
+                                            table.insert(swarmBlackboard, {
+                                                type = "progress",
+                                                source = agentId,
+                                                content = "[" .. (args.status or "update"):upper() .. "] " .. args.summary .. (args.files_modified and (" | Files: " .. args.files_modified) or "")
+                                            })
+                                        elseif toolName == "delegate_task" and args.task then
+                                            table.insert(swarmBlackboard, {
+                                                type = "delegation",
+                                                source = agentId,
+                                                target = args.preferred_agent or nil,
+                                                content = "[" .. (args.priority or "normal"):upper() .. " TASK] " .. args.task .. (args.context and ("\nContext: " .. args.context) or "")
+                                            })
                                         end
                                     end
                                 else
@@ -254,7 +373,7 @@ RULES:
             if not finalOutput then
                 finalOutput = "Failed: Max iterations reached."
                 swarmState.agents[i].status = "Failed"
-                Monitor.log(agentId, "Failed: Max iterations reached.")
+                Monitor.log(agentId, "Max iterations reached.")
             else
                 swarmState.agents[i].status = "Success"
                 Monitor.completion(agentId, finalOutput)
