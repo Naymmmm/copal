@@ -122,7 +122,7 @@ local function requestWithRetry(provider: any, body: string, model: string)
                     -- Emit usage event
                     Monitor.emit("log", "LLM", model .. " · " .. elapsed .. "ms" .. (decoded.usage and (" · " .. (decoded.usage.total_tokens or "?") .. " tok") or ""))
                     
-                    return decoded
+                    return decoded, 200
                 end
                 lastError = "Response missing choices field"
             else
@@ -138,7 +138,7 @@ local function requestWithRetry(provider: any, body: string, model: string)
                  Task.wait(waitTime)
             else
                  LLMClient._usage.errors += 1
-                 break -- Fatal client error (400, 401, 403, etc.)
+                 return nil, response.statusCode -- Return status code for fatal errors
             end
         else
             lastError = "Network Request Failed: " .. tostring(response)
@@ -150,8 +150,11 @@ local function requestWithRetry(provider: any, body: string, model: string)
 
     Logger.error("LLM Request failed after " .. maxRetries .. " attempts. Last error: " .. lastError)
     LLMClient._usage.errors += 1
-    return nil
+    return nil, 0 -- Return 0 as status code for network/unknown errors
 end
+-- To support the new return signature, we need to update the success return too
+-- See lines 125 above
+-- We'll need to modify the function start to handle the returns properly.
 
 -- ═══════════════════════════════════════
 --  Fallback: Parse Text Tool Calls
@@ -308,7 +311,17 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
     }
 
     local body = serde.encode("json", payload)
-    local data = requestWithRetry(provider, body, model)
+    local data, statusCode = requestWithRetry(provider, body, model)
+
+    -- FALLBACK: If 404 or 400 and we used tools, try again without tools
+    if not data and (statusCode == 404 or statusCode == 400) and tools ~= nil then
+        Logger.warn("Model returned " .. statusCode .. " with tools. Retrying without native tool support...")
+        payload.tools = nil
+        payload.tool_choice = nil
+        body = serde.encode("json", payload)
+        data, statusCode = requestWithRetry(provider, body, model)
+    end
+
     if not data then return nil, nil end
 
     if data.choices and #data.choices > 0 then
