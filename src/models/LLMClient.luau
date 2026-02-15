@@ -97,6 +97,8 @@ local function requestWithRetry(provider: any, body: string, model: string)
                 headers = {
                     ["Content-Type"] = "application/json",
                     ["Authorization"] = "Bearer " .. provider.key,
+                    ["X-Title"] = "Copal",
+                    ["HTTP-Referer"] = "https://copal.run",
                 },
                 body = body,
             })

@@ -107,7 +107,7 @@ Return ONLY the JSON array of strings, no explanation.]]
     Monitor.log("Director", "Dispatching to Swarm.")
     
     -- 2. Execute via Swarm with Review Loop
-    local maxReviews = 3
+    local maxReviews = Config.max_director_iterations or 3
     local reviews = 0
     local results = {}
     local currentSubTasks = subTasks
@@ -123,7 +123,7 @@ Return ONLY the JSON array of strings, no explanation.]]
         Monitor.log("Director", "Reviewing results...")
         
         local reviewPrompt = {
-            {role = "system", content = "You are a Technical Director. Review the results of the subtasks. If they are satisfactory and the original goal is met, return 'SUCCESS'. If not, return a JSON list of NEW subtasks to fix the issues. Do not return the original tasks if they failed, provide adjusted tasks."},
+            {role = "system", content = "You are a Technical Director. Review the results of the subtasks. You are in Review Cycle " .. (reviews + 1) .. " of " .. maxReviews .. ". If results are satisfactory and aim is met, return 'SUCCESS'. If not, return JSON list of NEW subtasks. Do not return original tasks."},
             {role = "user", content = "Original Goal: " .. goal .. "\n\nResults:\n" .. serde.encode("json", results)}
         }
         

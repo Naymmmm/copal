@@ -95,6 +95,7 @@ Registry.register(require("./Interaction").askUserTool)
 Registry.register(require("./Thinking").thinkTool)
 Registry.register(require("./Thinking").sleepTool)
 Registry.register(require("./Thinking").wakeTool)
+Registry.register(require("./FlowControl").extendIterationsTool)
 
 -- Web
 Registry.register(require("./WebFetch").fetchTool)

@@ -136,7 +136,7 @@ local VERSION = (function()
         local ver = content:match('version%s*=%s*"([^"]+)"')
         if ver then return ver end
     end
-    return "0.2.12"
+    return "0.3.0"
 end)()
 
 function TUI.drawHeader(title: string?)

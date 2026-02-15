@@ -34,6 +34,8 @@ local Config = {
     shell_preference = "auto", -- "auto" | "pwsh" | "powershell" | "bash" | "cmd"
     rate_limit_delay = 0, -- seconds to wait between LLM calls (0 = no delay)
     max_agents = 5, -- max concurrent agents in swarm mode
+    max_director_iterations = 3, -- max review cycles for director
+    max_swarm_iterations = 10, -- max tool calls for swarm agents
     providers = {
         opencode = {
             url = "https://api.opencode.com/v1",
@@ -68,6 +70,8 @@ function Config.load()
             if data.shell_preference then Config.shell_preference = data.shell_preference end
             if data.rate_limit_delay then Config.rate_limit_delay = tonumber(data.rate_limit_delay) or 0 end
             if data.max_agents then Config.max_agents = tonumber(data.max_agents) or 5 end
+            if data.max_director_iterations then Config.max_director_iterations = tonumber(data.max_director_iterations) or 3 end
+            if data.max_swarm_iterations then Config.max_swarm_iterations = tonumber(data.max_swarm_iterations) or 10 end
             if data.providers then 
                 for k, v in pairs(data.providers) do
                     Config.providers[k] = v
@@ -86,6 +90,8 @@ function Config.save()
         shell_preference = Config.shell_preference,
         rate_limit_delay = Config.rate_limit_delay,
         max_agents = Config.max_agents,
+        max_director_iterations = Config.max_director_iterations,
+        max_swarm_iterations = Config.max_swarm_iterations,
         providers = Config.providers
     }, true)
     fs.writeFile(CONFIG_FILE, content)

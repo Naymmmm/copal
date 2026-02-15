@@ -1,4 +1,4 @@
-import { Callout, Steps } from 'nextra/components'
+import { Callout, Steps } from "nextra/components";
 
 # Configuration
 
@@ -30,25 +30,33 @@ Copal stores configuration in `~/.copal_config.json` in your home directory.
 
 ## Global Settings
 
-| Setting | Type | Description | Default |
-|---------|------|-------------|---------|
-| `active_provider` | string | Which provider to use | `"opencode"` |
-| `security_level` | string | `"restricted"` or `"full_access"` | `"restricted"` |
-| `shell_preference` | string | `"auto"`, `"pwsh"`, `"powershell"`, `"bash"`, `"cmd"` | `"auto"` |
-| `rate_limit_delay` | number | Seconds between LLM calls (0 = no delay) | `0` |
-| `max_agents` | number | Maximum concurrent agents in swarm | `5` |
+| Setting                   | Type   | Description                                           | Default        |
+| ------------------------- | ------ | ----------------------------------------------------- | -------------- |
+| `active_provider`         | string | Which provider to use                                 | `"opencode"`   |
+| `security_level`          | string | `"restricted"` or `"full_access"`                     | `"restricted"` |
+| `shell_preference`        | string | `"auto"`, `"pwsh"`, `"powershell"`, `"bash"`, `"cmd"` | `"auto"`       |
+| `rate_limit_delay`        | number | Seconds between LLM calls (0 = no delay)              | `0`            |
+| `max_agents`              | number | Maximum concurrent agents in swarm                    | `5`            |
+| `max_director_iterations` | number | Maximum review cycles for Director                    | `3`            |
+| `max_swarm_iterations`    | number | Maximum tool calls per Swarm agent                    | `10`           |
 
 ### Security Levels
 
 **Restricted** (recommended):
+
 - Agents can only access files in the current working directory
 - Commands require user approval
 - Safer for general use
 
 **Full Access**:
+
 - Agents can access any file on the system
 - Commands run without approval
 - Use with caution
+
+### Dynamic Iterations
+
+Agents generally have a limit on how many steps they can take (`max_swarm_iterations`). However, if an agent is making progress but runs out of iterations, it can request an extension using the `extend_iterations` tool. This allows complex tasks to continue without being arbitrarily cut off.
 
 ## Provider Configuration
 
@@ -141,20 +149,22 @@ For Ollama, LM Studio, or other local endpoints:
   }
 }
 ```
+
 </Steps>
 
 <Callout type="tip">
-For local LLMs via Ollama, make sure you have the OpenAI-compatible API enabled with `OLLAMA_ORIGINS=* ollama serve`
+  For local LLMs via Ollama, make sure you have the OpenAI-compatible API
+  enabled with `OLLAMA_ORIGINS=* ollama serve`
 </Callout>
 
 ## Model Tiers
 
-| Tier | Used By | Recommended Models |
-|------|---------|-------------------|
-| `low` | Swarm agents | Fast, cheap models (GPT-4o-mini, Grok-code-fast) |
-| `medium` | Directors | Capable models for planning (Claude 3.5 Sonnet, GPT-4o) |
-| `high` | CEO | Most capable models (o1-preview, o1) |
-| `search` | Web search | Models with web access (Grok, Perplexity) |
+| Tier     | Used By      | Recommended Models                                      |
+| -------- | ------------ | ------------------------------------------------------- |
+| `low`    | Swarm agents | Fast, cheap models (GPT-4o-mini, Grok-code-fast)        |
+| `medium` | Directors    | Capable models for planning (Claude 3.5 Sonnet, GPT-4o) |
+| `high`   | CEO          | Most capable models (o1-preview, o1)                    |
+| `search` | Web search   | Models with web access (Grok, Perplexity)               |
 
 ## Changing Settings
 

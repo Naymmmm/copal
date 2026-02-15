@@ -227,7 +227,8 @@ RULES:
             
             local finalOutput = nil
             local iterations = 0
-            local maxIterations = 10 
+            local iterations = 0
+            local maxIterations = Config.max_swarm_iterations or 10
             local lastReadBroadcastIndex = 0
             
             while iterations < maxIterations do
@@ -277,9 +278,23 @@ RULES:
                 end
                 
                 swarmState.agents[i].status = "Thinking"
-                Monitor.thought(agentId, "Thinking... (Iter " .. iterations .. ")")
+                Monitor.thought(agentId, "Thinking... (Iter " .. iterations .. "/" .. maxIterations .. ")")
                 
-                local output, toolCalls = LLMClient.completion(messages, self._model, toolDefs, "auto")
+                -- Inject Iteration Context
+                local iterationContext = "Iteration: " .. iterations .. " / " .. maxIterations
+                if iterations >= maxIterations - 1 then
+                    iterationContext = iterationContext .. " [WARNING: You are on your last iteration. If you need more time, use 'extend_iterations' immediately.]"
+                end
+                
+                -- Add context to the last message if it's from user, or append a system message
+                -- Here we'll append a temporary system message to the history for this turn
+                local currentMessages = table.clone(messages)
+                table.insert(currentMessages, {
+                     role = "system",
+                     content = "[" .. iterationContext .. "]"
+                })
+                
+                local output, toolCalls = LLMClient.completion(currentMessages, self._model, toolDefs, "auto")
                 
                 if not output and not toolCalls then
                     swarmState.agents[i].status = "Error (Network)"
@@ -403,6 +418,10 @@ RULES:
                                                 target = args.preferred_agent or nil,
                                                 content = "[" .. (args.priority or "normal"):upper() .. " TASK] " .. args.task .. (args.context and ("\nContext: " .. args.context) or "")
                                             })
+                                        elseif toolName == "extend_iterations" then
+                                            local extra = args.count or 5
+                                            maxIterations += extra
+                                            Monitor.log(agentId, "Extended iterations by " .. extra .. ". New limit: " .. maxIterations)
                                         end
                                     end
                                 else
