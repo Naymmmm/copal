@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components'
+import { Callout } from "nextra/components";
 
 # Quick Start
 
@@ -9,7 +9,7 @@ This guide will walk you through your first Copal session.
 The easiest way to use Copal is in interactive mode:
 
 ```bash
-lune run src/main.luau
+pesde x naymmmm/copal
 ```
 
 You'll see a menu with three operating modes:
@@ -27,13 +27,16 @@ Analyze the src folder and write a summary report
 ```
 
 The swarm will:
+
 - Spawn multiple worker agents
 - Distribute the task among them
 - Coordinate their work via the blackboard
 - Return consolidated results
 
 <Callout type="tip">
-Swarm mode works best for tasks that can be broken down into independent subtasks. For complex projects requiring coordination and review, use Director Mode instead.
+  Swarm mode works best for tasks that can be broken down into independent
+  subtasks. For complex projects requiring coordination and review, use Director
+  Mode instead.
 </Callout>
 
 ## Your First Director Task
@@ -45,6 +48,7 @@ Refactor the authentication module to use JWT tokens
 ```
 
 The Director will:
+
 1. Break down the goal into a plan of subtasks
 2. Execute each subtask via the swarm
 3. Review the results
@@ -56,10 +60,10 @@ You can bypass the interactive menu for automation:
 
 ```bash
 # Run a specific task with a swarm
-lune run src/main.luau -- --mode swarm --task "Analyze the src folder and write a report"
+pesde x naymmmm/copal -- --mode swarm --task "Analyze the src folder and write a report"
 
 # Run with Director
-lune run src/main.luau -- --mode director --goal "Refactor the authentication module"
+pesde x naymmmm/copal -- --mode director --goal "Refactor the authentication module"
 ```
 
 ## Next Steps
