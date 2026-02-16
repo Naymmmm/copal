@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(lune run:*)",
+      "Bash(rg:*)",
+      "Bash(lune:*)"
+    ]
+  }
+}

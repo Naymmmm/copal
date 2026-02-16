@@ -116,6 +116,97 @@ local function selectModel(role: string, default: string, apiKey: string): strin
     end
 end
 
+
+
+-- Helper to list active servers
+local function listServers(Config: any)
+    TUI.section("Active MCP Servers")
+    if not Config.mcpServers or next(Config.mcpServers) == nil then
+        TUI.sectionItem("i", "white", "No servers configured.")
+    else
+        for name, cfg in pairs(Config.mcpServers) do
+            local cmdStr = cfg.command .. " " .. table.concat(cfg.args, " ")
+            if #cmdStr > 40 then cmdStr = cmdStr:sub(1, 37) .. "..." end
+            TUI.sectionItem(name, "green", stdio.style("dim") .. cmdStr .. stdio.style("reset"))
+        end
+    end
+    TUI.sectionEnd()
+    TUI.blank()
+end
+
+function Wizard.mcpMenu()
+    local Registry = require("../tools/Registry")
+    
+    while true do
+        TUI.drawHeader("MCP Servers")
+        listServers(Config)
+        
+        local selection = TUI.menu({
+            {label = "Add Server",    value = "add",    description = "Connect a new tool server"},
+            {label = "Remove Server", value = "remove", description = "Disconnect a server"},
+            {label = "Back",          value = "back",   description = "Return to settings"},
+        })
+        
+        if selection == "add" then
+            TUI.drawHeader("Add MCP Server")
+            local name = TUI.prompt("Server Name (e.g. filesystem)")
+            if #name == 0 then continue end
+            if Config.mcpServers and Config.mcpServers[name] then
+                Logger.error("Server with that name already exists.")
+                Task.wait(1)
+                continue
+            end
+            
+            local cmd = TUI.prompt("Command (e.g. npx, python)")
+            if #cmd == 0 then continue end
+            
+            local argsStr = TUI.prompt("Arguments (space separated)")
+            local args = {}
+            for arg in argsStr:gmatch("%S+") do
+                table.insert(args, arg)
+            end
+            
+            if not Config.mcpServers then Config.mcpServers = {} end
+            Config.mcpServers[name] = {
+                command = cmd,
+                args = args
+            }
+            Config.save()
+            Logger.info("Reloading tools...")
+            Registry.reloadMCP()
+            Logger.success("Server added!")
+            Task.wait(1)
+            
+        elseif selection == "remove" then
+            TUI.drawHeader("Remove Server")
+            if not Config.mcpServers or next(Config.mcpServers) == nil then
+                Logger.warn("No servers to remove.")
+                Task.wait(1)
+                continue
+            end
+            
+            local options = {}
+            for name, _ in pairs(Config.mcpServers) do
+                table.insert(options, {label = name, value = name})
+            end
+            table.insert(options, {label = "Cancel", value = "cancel"})
+            
+            local toRemove = TUI.menu(options)
+            if toRemove and toRemove ~= "cancel" then
+                Config.mcpServers[toRemove] = nil
+                Config.save()
+                Logger.info("Reloading tools...")
+                Registry.reloadMCP()
+                Logger.success("Server removed.")
+                Task.wait(1)
+            end
+            
+        elseif selection == "back" then
+            return
+        end
+    end
+end
+
 function Wizard.settingsMenu()
     while true do
         TUI.drawHeader("Settings")
@@ -132,6 +223,7 @@ function Wizard.settingsMenu()
             {label = "Update API Key",      value = "apikey",     description = "For " .. Config.active_provider},
             {label = "Model Selection",     value = "models",     description = "Configure per-tier models"},
             {label = "Security Level",      value = "security",   description = (Config.security_level or "restricted")},
+            {label = "MCP Servers",         value = "mcp",        description = "Manage external tools"},
             {label = "Rate Limit Delay",    value = "ratelimit",  description = tostring(Config.rate_limit_delay or 0) .. "s between LLM calls"},
             {label = "Max Agents",          value = "maxagents",  description = tostring(Config.max_agents or 5) .. " concurrent agents"},
             {label = "Back",                value = "back",       description = "Return to main menu"},
@@ -168,6 +260,8 @@ function Wizard.settingsMenu()
             Config.save()
             Logger.success("Models updated.")
             Task.wait(1)
+        elseif selection == "mcp" then
+            Wizard.mcpMenu()
         elseif selection == "security" then
             TUI.drawHeader("Security Level")
             TUI.blank()

@@ -345,4 +345,62 @@ function LLMClient.completion(messages: {Message}, model: string, tools: {Tool}?
     return nil, nil
 end
 
+--------------------------------------------------------------------------------
+-- Public: Embeddings
+--------------------------------------------------------------------------------
+
+function LLMClient.embedding(input: string, model: string?): {number}?
+    local provider = Config.getActive()
+    
+    -- Default to configured embedding model if not provided
+    local embedModel = model or provider.models.embedding
+    if not embedModel then
+        Logger.error("No embedding model configured for provider: " .. Config.active_provider)
+        return nil
+    end
+
+    local payload = {
+        model = embedModel,
+        input = input
+    }
+    
+    local body = serde.encode("json", payload)
+    
+    -- Retry logic similar to completions
+    local maxRetries = 3
+    local attempt = 0
+    
+    while attempt < maxRetries do
+        attempt += 1
+        local success, response = pcall(function()
+            return net.request({
+                url = provider.url .. "/embeddings",
+                method = "POST",
+                headers = {
+                    ["Content-Type"] = "application/json",
+                    ["Authorization"] = "Bearer " .. provider.key,
+                    ["X-Title"] = "Copal",
+                    ["HTTP-Referer"] = "https://copal.run",
+                },
+                body = body,
+            })
+        end)
+        
+        if success and response.ok then
+            local decodeSuccess, decoded = pcall(function() return serde.decode("json", response.body) end)
+            if decodeSuccess and decoded.data and #decoded.data > 0 then
+                -- Return the vector from the first element
+                Monitor.emit("log", "Embed", embedModel .. " · " .. #input .. " chars")
+                return decoded.data[1].embedding
+            end
+        elseif success then
+             Logger.warn("Embedding failed: " .. response.statusCode .. " " .. response.statusMessage)
+             if response.statusCode == 429 then Task.wait(2) end
+        end
+        Task.wait(1)
+    end
+    
+    return nil
+end
+
 return LLMClient

@@ -15,7 +15,7 @@ local function test()
     local query = "What is the current version of Lune runtime?"
     print("Querying:", query)
     
-    local result = Search.execute({query = query})
+    local result = Search.searchTool.execute({query = query})
     print("\nResult:")
     print(result)
 end

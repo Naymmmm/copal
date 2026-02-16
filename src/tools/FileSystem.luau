@@ -37,22 +37,68 @@ end
 
 FileSystem.readFileTool = {
     name = "read_file",
-    description = "Read the entire contents of a file. For large files, consider using read_file_lines instead to save context.",
+    description = "Read a file with line numbers. Supports pagination via offset/limit for large files. Returns formatted output with line numbers (e.g. '  1 │ content').",
     parameters = {
         type = "object",
         properties = {
-            path = {type = "string", description = "Path to the file"}
+            path = {type = "string", description = "Path to the file"},
+            offset = {type = "number", description = "Starting line number, 1-indexed (default: 1)"},
+            limit = {type = "number", description = "Maximum number of lines to return (default: all)"}
         },
         required = {"path"}
     },
     execute = function(args)
         if not args.path then return "Error: path required" end
-        
+
         local safe, reason = isSafePath(args.path)
         if not safe then return "Security Error: " .. tostring(reason) end
-        
+
         local success, content = pcall(function() return fs.readFile(args.path) end)
-        if success then return content else return "Error reading file: " .. tostring(content) end
+        if not success then return "Error reading file: " .. tostring(content) end
+
+        -- Split into lines
+        local lines = {}
+        for line in (content .. "\n"):gmatch("(.-)\n") do
+            table.insert(lines, line)
+        end
+        -- Remove trailing empty line from the split
+        if #lines > 0 and lines[#lines] == "" and not content:match("\n$") then
+            -- Only remove if original content didn't end with newline
+        elseif #lines > 0 and lines[#lines] == "" and content:sub(-1) ~= "\n" then
+            table.remove(lines)
+        end
+
+        local totalLines = #lines
+        local startLine = math.max(1, args.offset or 1)
+        local endLine = totalLines
+
+        if args.limit then
+            endLine = math.min(totalLines, startLine + args.limit - 1)
+        end
+
+        if startLine > totalLines then
+            return "Error: offset (" .. startLine .. ") exceeds file length (" .. totalLines .. " lines)"
+        end
+
+        -- Build output with line numbers
+        local result = {}
+
+        -- Large file warning
+        if #content > 50000 and not args.offset and not args.limit then
+            table.insert(result, "⚠ Large file (" .. #content .. " chars, " .. totalLines .. " lines). Consider using offset/limit to read specific sections.")
+            table.insert(result, "")
+        end
+
+        -- Header when paginated
+        if args.offset or args.limit then
+            table.insert(result, "Lines " .. startLine .. "-" .. endLine .. " of " .. totalLines .. " total:")
+        end
+
+        for i = startLine, endLine do
+            table.insert(result, string.format("%4d │ %s", i, lines[i]))
+        end
+
+        return table.concat(result, "\n")
     end
 }
 

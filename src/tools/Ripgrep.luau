@@ -13,7 +13,8 @@ Ripgrep.searchTool = {
             query = {type = "string", description = "The text or regex pattern to search for"},
             path = {type = "string", description = "The directory path to search in (default: current directory)"},
             globs = {type = "array", items = {type = "string"}, description = "Glob patterns to include/exclude (e.g. '*.luau')"},
-            case_sensitive = {type = "boolean", description = "Enable case sensitive search (default: false)"}
+            case_sensitive = {type = "boolean", description = "Enable case sensitive search (default: false)"},
+            context_lines = {type = "number", description = "Number of context lines to show before and after each match (default: 0)"}
         },
         required = {"query"}
     },
@@ -43,6 +44,11 @@ Ripgrep.searchTool = {
         
         if not caseSensitive then
             table.insert(params, "--ignore-case")
+        end
+
+        if args.context_lines and args.context_lines > 0 then
+            table.insert(params, "-C")
+            table.insert(params, tostring(math.min(args.context_lines, 10)))
         end
         
         for _, glob in ipairs(globs) do

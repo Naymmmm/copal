@@ -30,7 +30,7 @@ local function testTools()
     local testFile = "test_write.txt"
     FileSystem.writeFileTool.execute({path = testFile, content = "Hello Tools"})
     local content = FileSystem.readFileTool.execute({path = testFile})
-    if content == "Hello Tools" then
+    if content:find("Hello Tools") then
         stdio.write("[PASS] FileSystem Read/Write\n")
     else
         stdio.write("[FAIL] FileSystem content mismatch: " .. tostring(content) .. "\n")
